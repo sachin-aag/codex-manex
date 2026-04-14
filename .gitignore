@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+handouts/team-*.txt
+volumes/
+data-generation/.venv/
+data-generation/__pycache__/
+data-generation/*.pyc
+assets/defect_images/*.jpg
+assets/defect_images/*.png
+!assets/defect_images/.gitkeep
+.DS_Store
