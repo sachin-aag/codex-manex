@@ -39,6 +39,7 @@ How far you take each pillar is up to you. Pick your angle, pick your stack.
 
 ## Docs
 
+- [docs/CASE.md](docs/CASE.md) — the challenge, evaluation criteria, and context.
 - [docs/QUICKSTART.md](docs/QUICKSTART.md) — connect in < 5 minutes.
 - [docs/API_REFERENCE.md](docs/API_REFERENCE.md) — endpoints, examples in curl / JS / Python.
 - [docs/SCHEMA.md](docs/SCHEMA.md) — entities, fields, ER diagram.
