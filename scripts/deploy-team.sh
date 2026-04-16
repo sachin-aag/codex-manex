@@ -136,11 +136,12 @@ REST API:     http://$HOST:$API_PORT/
 Studio UI:    http://$HOST:$STUDIO_PORT/
 PostgreSQL:   postgres://$TEAM_DB_USER:$TEAM_DB_PASSWORD@$HOST:$POSTGRES_PORT/hackathon
 
-API Key (apikey header):
+API Key (Authorization: Bearer header):
 $ANON_KEY
 
 Quick start:
-  curl -H "apikey: \$KEY" "http://$HOST:$API_PORT/defect?limit=5"
+  export KEY="$ANON_KEY"
+  curl -H "Authorization: Bearer \$KEY" "http://$HOST:$API_PORT/defect?limit=5"
 
 Shared image server: http://$HOST:9000/defect_images/
 

@@ -8,10 +8,10 @@ Three access layers:
 
 ## Authentication
 
-REST calls need the `apikey` header:
+REST calls need the `Authorization` header:
 
 ```
-apikey: <your-team-anon-key>
+Authorization: Bearer <your-team-anon-key>
 ```
 
 Postgres connections use the user/password from your handout.
@@ -45,23 +45,23 @@ Full PostgREST docs: https://postgrest.org/
 ### curl
 
 ```bash
-export API="http://<vm>:800N"
+export API="https://api-<team>.<domain>"
 export KEY="eyJhbGci..."
 
 # All defects for a specific product
-curl -H "apikey: $KEY" \
+curl -H "Authorization: Bearer $KEY" \
   "$API/v_defect_detail?product_id=eq.PRD-00042&order=defect_ts.desc"
 
 # BOM-level traceability: what parts with which batch are installed in this product?
-curl -H "apikey: $KEY" \
+curl -H "Authorization: Bearer $KEY" \
   "$API/v_product_bom_parts?product_id=eq.PRD-00042"
 
 # Defects clustered by part number, newest first
-curl -H "apikey: $KEY" \
+curl -H "Authorization: Bearer $KEY" \
   "$API/v_defect_detail?select=defect_id,defect_ts,defect_code,reported_part_title&order=defect_ts.desc&limit=20"
 
 # Create an initiative
-curl -X POST -H "apikey: $KEY" -H "Content-Type: application/json" \
+curl -X POST -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
   -H "Prefer: return=representation" \
   "$API/product_action" \
   -d '{"action_id":"PA-00101","product_id":"PRD-00042","ts":"2026-04-13T10:00:00Z","action_type":"corrective","status":"open","user_id":"team","defect_id":"DEF-00007","comments":"Containment at supplier level"}'
@@ -73,7 +73,7 @@ curl -X POST -H "apikey: $KEY" -H "Content-Type: application/json" \
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
-  'http://<vm>:800N',    // your team's API URL
+  'https://api-<team>.<domain>',    // your team's API URL
   '<your-anon-key>'
 )
 
@@ -102,8 +102,8 @@ await supabase.from('product_action').insert({
 ```python
 import requests
 
-API = "http://<vm>:800N"
-HDR = {"apikey": "<your-anon-key>"}
+API = "https://api-<team>.<domain>"
+HDR = {"Authorization": "Bearer <your-anon-key>"}
 
 # Read
 resp = requests.get(
@@ -137,7 +137,7 @@ import pandas as pd
 from sqlalchemy import create_engine
 
 engine = create_engine(
-  "postgresql://team_writer_<slug>:<pw>@<vm>:543N/hackathon"
+  "postgresql://team_writer_<slug>:<pw>@<vm>:<port>/hackathon"
 )
 
 # Full SQL, no REST limits
@@ -151,7 +151,7 @@ df = pd.read_sql("""
 
 ## Supabase Studio (SQL Editor)
 
-URL: `http://<vm>:840N/`
+URL: `https://studio-<team>.<domain>/`
 
 Use it for:
 - Ad-hoc SQL (window functions, recursive CTEs, complex joins).
