@@ -51,8 +51,19 @@ generated `handouts/team-<slug>.txt`.
 ```bash
 cd data-generation
 pip install -r requirements.txt
-# (optional) refresh LLM texts — requires ANTHROPIC_API_KEY
-python generate_texts.py
+# Create English template files manually (no API integration needed):
+# see data-generation/MANUAL_TEXT_PROMPTS.md
+python validate_templates.py --strict-english
 python generate.py
 # seed.sql now refreshed; redeploy or run reset-team.sh
+```
+
+Optional automated route (if desired):
+
+```bash
+cd data-generation
+export GOOGLE_API_KEY=...
+python generate_texts.py
+python validate_templates.py --strict-english
+python generate.py
 ```

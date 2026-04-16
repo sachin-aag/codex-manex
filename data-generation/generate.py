@@ -155,12 +155,19 @@ def insert_rows(table: str, rows: list[dict]) -> str:
 # Text templates
 # ======================================================================
 
-def load_texts(filename: str) -> dict[str, list[str]]:
-    """Load a tagged-text JSON and bucket by tag. Falls back to stub if missing."""
-    path = TEMPLATES_DIR / filename
+def load_texts_with_fallback(primary_filename: str, legacy_filename: str) -> dict[str, list[str]]:
+    """Load tagged-text JSON from primary file, fallback to legacy if needed."""
+    primary = TEMPLATES_DIR / primary_filename
+    legacy = TEMPLATES_DIR / legacy_filename
+
+    path = primary if primary.exists() else legacy
     if not path.exists():
-        print(f"  warning: {path} missing — using stub placeholders", file=sys.stderr)
+        print(
+            f"  warning: missing {primary} and {legacy} — using stub placeholders",
+            file=sys.stderr,
+        )
         return {}
+
     entries = json.loads(path.read_text(encoding="utf-8"))
     buckets: dict[str, list[str]] = {}
     for entry in entries:
@@ -188,12 +195,12 @@ class TextBank:
         return text
 
 
-claims_bank  = TextBank(load_texts("claim_texts_de.json"),
-                        "Reklamation ohne Details.")
-defects_bank = TextBank(load_texts("defect_notes_de.json"),
-                        "Defekt erkannt, Details folgen.")
-rework_bank  = TextBank(load_texts("rework_actions_de.json"),
-                        "Nacharbeit durchgefuehrt.")
+claims_bank  = TextBank(load_texts_with_fallback("claim_texts_en.json", "claim_texts_de.json"),
+                        "Customer complaint without details.")
+defects_bank = TextBank(load_texts_with_fallback("defect_notes_en.json", "defect_notes_de.json"),
+                        "Defect detected, details pending.")
+rework_bank  = TextBank(load_texts_with_fallback("rework_actions_en.json", "rework_actions_de.json"),
+                        "Rework completed.")
 
 
 # ======================================================================

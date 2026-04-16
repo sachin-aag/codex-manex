@@ -6,8 +6,8 @@ Produces three JSON files under templates/ that generate.py consumes:
   - defect_notes_de.json:   40 shop-floor defect notes (German w/ abbreviations)
   - rework_actions_de.json: 30 rework action descriptions
 
-Run manually once (costs a few cents in Claude API). Commit the JSON outputs.
-    export ANTHROPIC_API_KEY=sk-ant-...
+Run manually once (costs a few cents in Gemini API). Commit the JSON outputs.
+    export GOOGLE_API_KEY=...
     python generate_texts.py
 
 The script mixes "neutral" samples with "story-tagged" samples that reference
@@ -20,15 +20,16 @@ import os
 import sys
 from pathlib import Path
 
-from anthropic import Anthropic
+from google import genai
+from google.genai import types
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 TEMPLATE_DIR.mkdir(exist_ok=True)
 
-MODEL = "claude-opus-4-6"
+MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-pro")
 
 # ----------------------------------------------------------------------
-# Batch specs — each spec is one Claude call returning a JSON array.
+# Batch specs — each spec is one Gemini call returning a JSON array.
 # story_tag lets generate.py route tagged samples into the right rows.
 # ----------------------------------------------------------------------
 
@@ -165,15 +166,21 @@ Reines JSON-Array.
 ]
 
 
-def call_claude(client: Anthropic, prompt: str, count: int) -> list[str]:
-    """Call Claude and extract a JSON list of strings from the response."""
+def call_gemini(client: genai.Client, prompt: str, count: int) -> list[str]:
+    """Call Gemini and extract a JSON list of strings from the response."""
     full_prompt = prompt.format(count=count).strip()
-    resp = client.messages.create(
+    resp = client.models.generate_content(
         model=MODEL,
-        max_tokens=4096,
-        messages=[{"role": "user", "content": full_prompt}],
+        contents=full_prompt,
+        config=types.GenerateContentConfig(
+            temperature=0.7,
+            max_output_tokens=4096,
+            response_mime_type="application/json",
+        ),
     )
-    text = resp.content[0].text.strip()
+    text = (resp.text or "").strip()
+    if not text:
+        raise RuntimeError("model returned empty response text")
 
     # Strip markdown fences if the model wrapped the JSON.
     if text.startswith("```"):
@@ -198,12 +205,12 @@ def call_claude(client: Anthropic, prompt: str, count: int) -> list[str]:
     return data
 
 
-def run_batches(client: Anthropic, batches: list[dict], out_file: Path) -> None:
+def run_batches(client: genai.Client, batches: list[dict], out_file: Path) -> None:
     """Run a group of batches and write the combined tagged output."""
     out: list[dict] = []
     for batch in batches:
         print(f"  batch tag={batch['tag']} count={batch['count']}")
-        items = call_claude(client, batch["prompt"], batch["count"])
+        items = call_gemini(client, batch["prompt"], batch["count"])
         for text in items:
             out.append({"tag": batch["tag"], "text": text})
 
@@ -215,12 +222,12 @@ def run_batches(client: Anthropic, batches: list[dict], out_file: Path) -> None:
 
 
 def main() -> int:
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        print("ERROR: ANTHROPIC_API_KEY not set", file=sys.stderr)
+        print("ERROR: GOOGLE_API_KEY (or GEMINI_API_KEY) not set", file=sys.stderr)
         return 1
 
-    client = Anthropic(api_key=api_key)
+    client = genai.Client(api_key=api_key)
 
     print("generating field claim texts...")
     run_batches(client, CLAIM_BATCHES, TEMPLATE_DIR / "claim_texts_de.json")
