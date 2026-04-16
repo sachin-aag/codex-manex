@@ -57,8 +57,8 @@ services:
       PG_META_DB_HOST: db
       PG_META_DB_PORT: "5432"
       PG_META_DB_NAME: ${POSTGRES_DB:-hackathon}
-      PG_META_DB_USER: postgres
-      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      PG_META_DB_USER: ${TEAM_DB_USER}
+      PG_META_DB_PASSWORD: ${TEAM_DB_PASSWORD}
 
   studio:
     image: supabase/studio:20240326-5e5586d
@@ -66,8 +66,8 @@ services:
     depends_on:
       - meta
       - postgrest
-    ports:
-      - "${STUDIO_PORT}:3000"
+    expose:
+      - "3000"
     environment:
       STUDIO_PG_META_URL: http://meta:8080
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -80,6 +80,21 @@ services:
       LOGFLARE_API_KEY: "dummy"
       LOGFLARE_URL: "http://dummy"
       NEXT_PUBLIC_ENABLE_LOGS: "false"
+
+  studio_auth:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - studio
+    ports:
+      - "${STUDIO_PORT}:80"
+    command: >
+      sh -ec '
+        HASH=$$(caddy hash-password --plaintext "${STUDIO_DASHBOARD_PASSWORD:-studioPass123}")
+        printf ":80 {\n  basicauth {\n    %s %s\n  }\n  reverse_proxy studio:3000\n}\n" \
+          "${STUDIO_DASHBOARD_USERNAME:-studio}" "$$HASH" > /etc/caddy/Caddyfile
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+      '
 
 volumes:
   db_data:

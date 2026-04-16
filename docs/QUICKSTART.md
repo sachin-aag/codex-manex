@@ -12,6 +12,7 @@ Team Alpha
 
 REST API:     http://<vm>:8001/
 Studio UI:    http://<vm>:8401/
+Studio Login: team_alpha / <studio-password>
 PostgreSQL:   postgres://team_writer_alpha:<pw>@<vm>:5431/hackathon
 
 API Key (apikey header):
@@ -39,6 +40,9 @@ Open `http://<vm>:8401/` in your browser. The SQL Editor tab accepts any
 Postgres SQL — window functions, CTEs, recursive queries, the whole
 toolkit. Use this when REST query shapes get painful.
 
+Studio is protected with HTTP Basic Auth. Use the `Studio Login` credentials
+from your handout before you can access the dashboard.
+
 ## 4. Direct Postgres (for data-science stacks)
 
 ```bash
@@ -59,7 +63,14 @@ http://<vm>:9000/defect_images/defect_01_cold_solder.jpg
 ```
 
 `image_url` columns in `defect` and `field_claim` point at these. Usable
-directly in `<img src>` tags or fed into vision-capable LLMs.
+as relative paths (example: `/defect_images/defect_01_cold_solder.jpg`).
+Build full URLs by prepending the handout host and assets port:
+
+```text
+full_image_url = http://<vm>:9000 + image_url
+```
+
+Then use the full URL in `<img src>` tags or vision-capable LLM calls.
 
 ## 6. Writing data back
 

@@ -63,8 +63,9 @@ STORY1_DEFECT_WEEKS = [(2026, 5), (2026, 6)]           # ~25 defects here
 STORY1_BATCH_RECEIVED = date(2026, 2, 3)                # SB-00007 received
 STORY2_WEEKS = [(2025, 49), (2025, 50), (2025, 51), (2025, 52)]  # ~20 defects
 
-# Image hosting base (deployed via scripts/deploy-assets.sh; nginx on :9000)
-IMAGE_BASE = "http://manex-hackathon.local:9000/defect_images"
+# Relative image path prefix. Clients should prepend the handout host, e.g.
+#   http://<vm>:9000 + image_url
+IMAGE_PATH_PREFIX = "/defect_images"
 
 # Counts
 N_PRODUCTS          = 500
@@ -970,7 +971,7 @@ def image_url_for_severity(severity: str, defect_code: str) -> str | None:
         "VIB_FAIL":     "defect_12_lifted_pad.jpg",
     }
     fname = mapping.get(defect_code, "defect_01_cold_solder.jpg")
-    return f"{IMAGE_BASE}/{fname}"
+    return f"{IMAGE_PATH_PREFIX}/{fname}"
 
 
 def build_defects() -> None:
@@ -1156,7 +1157,7 @@ def build_field_claims() -> None:
             "market": rng.choice(["DE", "FR", "IT", "NL", "US"]),
             "complaint_text": claims_bank.take("story1_supplier"),
             "reported_part_number": pn,
-            "image_url": f"{IMAGE_BASE}/defect_08_bulging_cap.jpg",
+            "image_url": f"{IMAGE_PATH_PREFIX}/defect_08_bulging_cap.jpg",
             "cost": round(rng.uniform(200, 1500), 2),
             "detected_section_id": None,
             "mapped_defect_id": mapped_defect,
@@ -1184,7 +1185,7 @@ def build_field_claims() -> None:
             "market": rng.choice(["DE", "FR", "IT", "ES", "PL"]),
             "complaint_text": claims_bank.take("story3_thermal"),
             "reported_part_number": pn,
-            "image_url": f"{IMAGE_BASE}/defect_03_burnt_resistor.jpg",
+            "image_url": f"{IMAGE_PATH_PREFIX}/defect_03_burnt_resistor.jpg",
             "cost": round(rng.uniform(300, 2000), 2),
             "detected_section_id": None,
             "mapped_defect_id": None,  # no in-factory defect for Story 3

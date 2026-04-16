@@ -46,6 +46,11 @@ Adds a stack on ports 8001 / 8401 / 5431 with a unique API key.
 Each team gets their own isolated stack + credentials. Hand out the
 generated `handouts/team-<slug>.txt`.
 
+Note: `image_url` values in the dataset are relative paths (for example,
+`/defect_images/defect_01_cold_solder.jpg`). Participants should prepend
+the handout host + assets port to render images, for example:
+`http://<IP_ADRRESS>:9000` + `image_url`.
+
 ## Regenerating seed data
 
 ```bash
