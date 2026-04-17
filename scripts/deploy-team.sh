@@ -46,8 +46,11 @@ AUTHENTICATOR_PASSWORD="$(rand_secret)"
 TEAM_DB_PASSWORD="$(rand_secret)"
 TEAM_DB_USER="team_writer_${SLUG//-/_}"
 
-ANON_KEY="$(make_jwt "$JWT_SECRET" anon)"
-SERVICE_ROLE_KEY="$(make_jwt "$JWT_SECRET" service_role)"
+## JWT role -> DB role mapping used by PostgREST (SET ROLE on each request).
+## Using team_writer (not anon) so unauth callers + invalid-signature tokens
+## fall back to anon which has no data access. This is the team-isolation wall.
+ANON_KEY="$(make_jwt "$JWT_SECRET" team_writer)"
+SERVICE_ROLE_KEY="$(make_jwt "$JWT_SECRET" team_writer)"
 
 # ----------------------------------------------------------------------
 # 3. Write env file

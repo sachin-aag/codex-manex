@@ -41,8 +41,11 @@ GRANT seed_readonly TO team_writer;
 -- authenticator must be able to SET ROLE to anon and team_writer
 GRANT anon TO authenticator;
 GRANT team_writer TO authenticator;
--- anon inherits team_writer so PostgREST requests get write capability
-GRANT team_writer TO anon;
+-- NOTE: anon intentionally has NO data access. Unauthenticated requests
+-- (or requests with invalid JWT signatures) fall back to anon and get empty
+-- responses / 401. Valid per-team JWTs (role=team_writer, signed with the
+-- team's unique JWT_SECRET) are the only path to read/write data. This is
+-- what isolates teams from each other.
 
 -- ============================================================
 -- Factory hierarchy
@@ -331,6 +334,7 @@ CREATE INDEX idx_product_action_user         ON product_action(user_id);
 -- Permissions: seed_readonly on all seed tables
 -- ============================================================
 
+-- anon gets USAGE on schema only (for OpenAPI introspection shell), no SELECT
 GRANT USAGE ON SCHEMA public TO seed_readonly, team_writer, anon;
 
 GRANT SELECT ON
@@ -346,9 +350,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON rework         TO team_writer;
 -- Allow team_writer to CREATE TABLE in public (custom FMEA/fault-tree tables etc.)
 GRANT CREATE ON SCHEMA public TO team_writer;
 
--- PostgREST needs table read access on the anon-effective role for OpenAPI + selects
--- anon inherits seed_readonly via team_writer -> seed_readonly chain
--- Plus grant SEQUENCE USAGE (future-proof for serial columns teams add)
+-- Grant SEQUENCE USAGE to team_writer (future-proof for serial columns teams add)
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO team_writer;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT USAGE, SELECT ON SEQUENCES TO team_writer;
