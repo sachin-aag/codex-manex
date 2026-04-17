@@ -19,7 +19,9 @@ while IFS= read -r slug || [[ -n "$slug" ]]; do
   [[ -z "$slug" || "$slug" == \#* ]] && continue
   N=$((N + 1))
   log "=== team #$N: $slug ==="
-  "$REPO_ROOT/scripts/deploy-team.sh" "$slug" "$N"
+  # Protect the loop input file from child commands that may read stdin
+  # (docker compose exec -T drains FD 0 otherwise, causing early EOF).
+  "$REPO_ROOT/scripts/deploy-team.sh" "$slug" "$N" < /dev/null
 done < "$TEAMS_FILE"
 
 log "deployed $N team(s). starting shared assets container."
