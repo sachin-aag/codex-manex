@@ -553,6 +553,91 @@ export async function assignCase(caseId: string) {
   return getCaseById(caseId);
 }
 
+export async function listRdCases(): Promise<QontrolCase[]> {
+  const cases = await listCases();
+  return cases.filter((c) => c.ownerTeam === "R&D" || c.story === "design");
+}
+
+export async function getRdCase(caseId: string): Promise<QontrolCase | null> {
+  try {
+    const c = await getCaseById(caseId);
+    if (c.ownerTeam !== "R&D" && c.story !== "design") {
+      return null;
+    }
+    return c;
+  } catch {
+    return null;
+  }
+}
+
+export type RdDecisionOutcome = "acknowledged" | "proposed_fix" | "rejected";
+
+export type RdDecisionPayload = {
+  outcome: RdDecisionOutcome;
+  classification?: "design" | "not_design";
+  proposedFixType?: "spec_change" | "part_change" | "no_action";
+  recallScope?: string[];
+  note: string;
+  actor?: string;
+};
+
+export async function submitRdDecision(caseId: string, payload: RdDecisionPayload) {
+  const current = await getCaseById(caseId);
+
+  // Encode structured payload in comments so the existing text-based timeline still reads well.
+  const commentPayload = {
+    decision: payload.outcome,
+    classification: payload.classification ?? null,
+    proposedFixType: payload.proposedFixType ?? null,
+    recallScope: payload.recallScope ?? [],
+    note: payload.note,
+  };
+  const comments = `[R&D ${payload.outcome}] ${payload.note} :: ${JSON.stringify(commentPayload)}`;
+
+  await insertProductAction({
+    product_id: current.productId,
+    ts: new Date().toISOString(),
+    action_type: "design_decision",
+    status: payload.outcome,
+    user_id: payload.actor ?? "rd",
+    section_id: null,
+    comments,
+    defect_id: caseId.startsWith("DEF-") ? caseId : null,
+  });
+
+  // State mapping reuses existing CaseState values so the QM board keeps rendering:
+  //   proposed_fix  -> returned_to_qm_for_verification (QM's existing verify column)
+  //   acknowledged  -> assigned (stays with R&D, just logged)
+  //   rejected      -> unassigned (bounced back to QM inbox for rerouting)
+  const nextState: CaseState =
+    payload.outcome === "proposed_fix"
+      ? "returned_to_qm_for_verification"
+      : payload.outcome === "rejected"
+      ? "unassigned"
+      : "assigned";
+
+  const stateNote =
+    payload.outcome === "proposed_fix"
+      ? `R&D proposed fix (${payload.proposedFixType ?? "n/a"}). Awaiting QM verification.`
+      : payload.outcome === "rejected"
+      ? `R&D rejected routing: ${payload.note}`
+      : `R&D acknowledged: ${payload.note}`;
+
+  await upsertCaseState({
+    caseId,
+    productId: current.productId,
+    defectId: caseId.startsWith("DEF-") ? caseId : null,
+    state: nextState,
+    assignee: payload.outcome === "rejected" ? null : current.assignee,
+    ownerTeam: payload.outcome === "rejected" ? null : current.ownerTeam,
+    qmOwner: current.qmOwner,
+    note: stateNote,
+    actor: "rd",
+  });
+
+  return getCaseById(caseId);
+}
+
 export async function closeCase(caseId: string) {
   const current = await getCaseById(caseId);
   const defectId =
