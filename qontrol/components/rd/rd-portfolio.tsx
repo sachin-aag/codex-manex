@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import type { QontrolCase } from "@/lib/qontrol-data";
 import type {
@@ -31,6 +31,32 @@ type Props = {
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return "-";
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "2-digit" });
+}
+
+function KpiCard({ label, value, hint }: { label: string; value: string | number; hint: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="metric-card" style={{ position: "relative" }}>
+      <span>{label}</span>
+      <button
+        type="button"
+        className="kpi-info-btn"
+        aria-label={`Info: ${label}`}
+        onClick={() => setOpen((v) => !v)}
+        onBlur={() => setOpen(false)}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="16" x2="12" y2="12" />
+          <line x1="12" y1="8" x2="12.01" y2="8" />
+        </svg>
+      </button>
+      <strong>{value}</strong>
+      {open && (
+        <div className="kpi-tooltip">{hint}</div>
+      )}
+    </div>
+  );
 }
 
 export function RdPortfolio(props: Props) {
@@ -95,18 +121,21 @@ function RdPortfolioInner({
           </p>
         </div>
         <div className="hero-stats">
-          <div className="metric-card">
-            <span>Open R&D cases</span>
-            <strong>{openCases.length}</strong>
-          </div>
-          <div className="metric-card">
-            <span>Awaiting QM verify</span>
-            <strong>{awaitingQm.length}</strong>
-          </div>
-          <div className="metric-card">
-            <span>Median lag (open FCs)</span>
-            <strong>{medianLag !== null ? `${medianLag} d` : "-"}</strong>
-          </div>
+          <KpiCard
+            label="Open R&D cases"
+            value={openCases.length}
+            hint="Cases routed to R&D that have not been closed yet — includes acknowledged, in-progress, and waiting-for-evidence tickets."
+          />
+          <KpiCard
+            label="Awaiting QM verify"
+            value={awaitingQm.length}
+            hint="R&D proposed a fix and flipped the case back to QM. These are waiting for QM to verify the fix before closing."
+          />
+          <KpiCard
+            label="Median lag (open FCs)"
+            value={medianLag !== null ? `${medianLag} d` : "-"}
+            hint="Median days_from_build across open field claims. High values (>56 d) suggest latent design issues that only surface after extended use."
+          />
         </div>
       </section>
 

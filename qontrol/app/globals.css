@@ -1058,6 +1058,45 @@ button {
 
 /* ---- R&D layout utilities ---- */
 
+/* KPI info icon + tooltip */
+
+.kpi-info-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  padding: 2px;
+  border-radius: 50%;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  line-height: 0;
+}
+
+.kpi-info-btn:hover,
+.kpi-info-btn:focus-visible {
+  color: var(--rd-accent-strong, var(--brand-strong));
+  background: var(--rd-accent-soft, var(--brand-soft));
+}
+
+.kpi-tooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: 240px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
 .rd-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
