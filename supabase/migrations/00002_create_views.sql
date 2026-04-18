@@ -128,6 +128,9 @@ LEFT JOIN section s  ON fc.detected_section_id = s.section_id;
 -- ============================================================
 -- v_quality_summary
 -- Weekly rollup per article: counts + top defect code. Dashboard fuel.
+-- Note: claim_count joins all field_claim rows for products built in week_start;
+-- that is not claim intake week. The portfolio weekly trend chart recomputes
+-- claim counts by claim_ts in application code.
 -- ============================================================
 CREATE OR REPLACE VIEW v_quality_summary AS
 WITH weekly AS (
