@@ -381,19 +381,38 @@ button {
   color: var(--danger);
   font-size: 13px;
   font-weight: 800;
-  animation: attention-pulse 1.8s ease-in-out infinite;
 }
 
 .attention-indicator.soon {
   background: var(--warning-soft);
   border-color: color-mix(in srgb, var(--warning) 35%, white);
   color: var(--warning);
+  animation: attention-pulse-subtle 2.5s ease-in-out infinite;
 }
 
 .attention-indicator.overdue {
   background: var(--danger-soft);
   border-color: color-mix(in srgb, var(--danger) 35%, white);
   color: var(--danger);
+  animation: attention-pulse 1.8s ease-in-out infinite;
+}
+
+.attention-indicator.on-track {
+  background: var(--success-soft);
+  border-color: color-mix(in srgb, var(--success) 35%, white);
+  color: var(--success);
+}
+
+.attention-indicator.updated-label {
+  width: auto;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  background: var(--success-soft);
+  border-color: color-mix(in srgb, var(--success) 35%, white);
+  color: var(--success);
 }
 
 @keyframes attention-pulse {
@@ -405,6 +424,16 @@ button {
   50% {
     transform: scale(1.06);
     box-shadow: 0 0 0 6px color-mix(in srgb, var(--danger) 0%, transparent);
+  }
+}
+
+@keyframes attention-pulse-subtle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
   }
 }
 
@@ -786,6 +815,13 @@ button {
   line-height: 1.5;
 }
 
+.triage-signal-copy,
+.story-visual-summary {
+  margin: 14px 0 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
 .timeline {
   display: flex;
   flex-direction: column;
@@ -828,6 +864,130 @@ button {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.inline-action-link {
+  text-decoration: none;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.story-visual-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.flow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.flow-card,
+.distribution-card {
+  border: 1px solid var(--border);
+  background: var(--surface-subtle);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.flow-card.highlight,
+.distribution-card.highlight {
+  background: var(--brand-soft);
+  border-color: color-mix(in srgb, var(--brand) 25%, white);
+}
+
+.flow-card span,
+.distribution-card span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.flow-card strong,
+.distribution-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 16px;
+}
+
+.flow-card p {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.mini-bar-chart {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.mini-bar-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.mini-bar-value {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.mini-bar-track {
+  width: 100%;
+  min-height: 140px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  display: flex;
+  align-items: end;
+  padding: 6px;
+}
+
+.mini-bar-fill {
+  width: 100%;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 45%, white);
+  min-height: 10px;
+}
+
+.mini-bar-fill.highlight {
+  background: var(--brand);
+}
+
+.mini-bar-column span {
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: center;
+}
+
+.distribution-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.distribution-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.distribution-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 40%, white);
+}
+
+.distribution-fill.highlight {
+  background: var(--brand);
 }
 
 .email-collapse {

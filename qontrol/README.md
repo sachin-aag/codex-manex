@@ -7,10 +7,11 @@
 - Light-mode QM kanban board
 - Ticket detail workspace
 - Story match / routing rationale
+- Story-aware triage visualizations
 - Similar tickets panel
 - Editable assignment email draft
-- Mock external ticket creation
-- Mock inbound team update from Jira-style system
+- GitHub issue creation for public board handoff
+- GitHub webhook sync for issue / comment / project status updates
 - QM verification close / reroute flow
 - Learnings capture in the case history
 
@@ -22,12 +23,10 @@
 
 ## What is still mocked
 
-- External ticketing integrations
-- Two-way sync from systems like Jira
 - Email delivery
 - Call scheduling / escalation workflows
 
-The UI shows where those actions live in the product and simulates the workflow locally.
+The UI now uses GitHub as the first real external board target, but email delivery and call scheduling remain simulated.
 
 ## Environment
 
@@ -41,6 +40,11 @@ Required values:
 
 - `MANEX_API_URL` - your team PostgREST base URL (for example `http://<vm>:8001`)
 - `MANEX_API_KEY` - your team anon API key
+- `QONTROL_PUBLIC_BASE_URL` - public URL for backlinking into a case from GitHub
+- `GITHUB_TOKEN` - PAT with issue/project write access to the public repo
+- `GITHUB_REPO_OWNER` / `GITHUB_REPO_NAME` - public repo used for external ticket handoff
+- `GITHUB_PROJECT_OWNER` / `GITHUB_PROJECT_OWNER_TYPE` / `GITHUB_PROJECT_NUMBER` - optional GitHub Project v2 board target
+- `GITHUB_WEBHOOK_SECRET` - shared secret used to verify GitHub webhook deliveries
 
 ## Run locally
 

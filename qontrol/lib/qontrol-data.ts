@@ -35,14 +35,90 @@ export type SimilarTicket = {
   learning: string;
 };
 
+export type ProposedFix = {
+  containment: string;
+  permanentFix: string;
+  validation: string;
+  confidence: "low" | "medium" | "high";
+  basis: string[];
+  ownerConfirmation: "pending" | "accepted" | "revised";
+};
+
+export type TriageContext = {
+  matchingCases: number;
+  openMatchingCases: number;
+  queuePriority: string;
+  timeSignal: string;
+  nextMove: string;
+};
+
+export type FlowStep = {
+  label: string;
+  value: string;
+  detail?: string;
+  highlight?: boolean;
+};
+
+export type ProcessTrendPoint = {
+  label: string;
+  count: number;
+  highlight?: boolean;
+};
+
+export type DistributionPoint = {
+  label: string;
+  count: number;
+  highlight?: boolean;
+};
+
+export type StoryVisualization =
+  | {
+      kind: "supplier";
+      title: string;
+      summary: string;
+      steps: FlowStep[];
+      annotations: string[];
+    }
+  | {
+      kind: "process";
+      title: string;
+      summary: string;
+      section: string;
+      trend: ProcessTrendPoint[];
+      annotations: string[];
+    }
+  | {
+      kind: "design";
+      title: string;
+      summary: string;
+      assembly: string;
+      findNumber: string;
+      lagDistribution: DistributionPoint[];
+      annotations: string[];
+    }
+  | {
+      kind: "handling";
+      title: string;
+      summary: string;
+      operator: string;
+      steps: FlowStep[];
+      annotations: string[];
+    };
+
 export type TeamTicket = {
-  system: "Jira" | "Service Cloud" | "QMS";
+  system: "GitHub" | "Service Cloud" | "QMS";
   ticketId: string;
   urlLabel: string;
+  url?: string;
   status: string;
   assignee: string;
   lastUpdate: string;
   sync: "synced" | "awaiting push" | "attention needed";
+  repo?: string;
+  issueNumber?: number;
+  projectItemId?: number;
+  projectUrl?: string;
+  lastSyncNote?: string;
 };
 
 export type QontrolCase = {
@@ -70,6 +146,9 @@ export type QontrolCase = {
   routingWhy: string[];
   missingEvidence: string[];
   evidenceTrail: string[];
+  triageContext: TriageContext;
+  visualization: StoryVisualization;
+  proposedFix: ProposedFix;
   requestedAction: {
     containment: string;
     permanentFix: string;
