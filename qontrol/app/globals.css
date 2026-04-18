@@ -49,6 +49,116 @@ button {
   cursor: pointer;
 }
 
+/* ---- App shell with sidebar ---- */
+
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.app-content {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 20px 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.sidebar-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--brand);
+  color: white;
+  font-weight: 800;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-brand span {
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--text-primary);
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  flex: 1;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-button);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sidebar-link:hover {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}
+
+.sidebar-link.active {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
+.sidebar-link.active svg {
+  color: var(--brand);
+}
+
+.sidebar-footer {
+  padding: 12px 20px 0;
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+
+.sidebar-env-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 6px 10px;
+  background: var(--surface-muted);
+  border-radius: 8px;
+  text-align: center;
+}
+
+/* ---- Existing page shell (now inside sidebar layout) ---- */
+
 .page-shell {
   min-height: 100vh;
   padding: 32px;
@@ -88,6 +198,7 @@ button {
   grid-template-columns: repeat(3, minmax(120px, 1fr));
   gap: 12px;
   min-width: 360px;
+  flex-shrink: 0;
 }
 
 .metric-card,
@@ -585,7 +696,271 @@ button {
   }
 }
 
+/* ---- Portfolio pages ---- */
+
+.pf-section {
+  margin-top: 28px;
+}
+
+.pf-loading-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.pf-skeleton {
+  height: 80px;
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
+  animation: pf-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pf-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.pf-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.pf-charts-grid h3 {
+  margin: 0 0 14px;
+  font-size: 16px;
+}
+
+/* Horizontal bar chart (CSS-only) */
+
+.pf-bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pf-bar-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 50px 50px;
+  align-items: center;
+  gap: 8px;
+}
+
+.pf-bar-label {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pf-bar-track {
+  height: 20px;
+  border-radius: 6px;
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.pf-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  background: var(--brand);
+  transition: width 0.4s ease;
+}
+
+.pf-bar-fill.pf-bar-teal {
+  background: var(--brand);
+}
+
+.pf-bar-value {
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+  font-family: var(--font-mono), monospace;
+}
+
+.pf-bar-cum {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* Learnings grid */
+
+.pf-learnings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.pf-learning-card {
+  display: block;
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.pf-learning-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.pf-learning-high {
+  border-left: 4px solid var(--danger);
+}
+
+.pf-learning-medium {
+  border-left: 4px solid var(--warning);
+}
+
+.pf-learning-low {
+  border-left: 4px solid var(--border-strong);
+}
+
+.pf-learning-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.pf-learning-top h3,
+.pf-learning-top h4 {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.pf-learning-story {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--brand-strong);
+  font-weight: 600;
+}
+
+.pf-learning-why {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pf-learning-evidence {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--brand);
+  font-weight: 600;
+}
+
+/* Tables */
+
+.pf-table-wrap {
+  overflow-x: auto;
+  margin-top: 16px;
+}
+
+.pf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.pf-table th,
+.pf-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.pf-table th {
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--surface-subtle);
+  position: sticky;
+  top: 0;
+}
+
+.pf-table td {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+}
+
+.pf-cell-hot {
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.capitalize {
+  text-transform: capitalize;
+}
+
+/* Backlog grid */
+
+.pf-backlog-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 1200px) {
+  .pf-charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pf-learnings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pf-bar-row {
+    grid-template-columns: 100px 1fr 40px 40px;
+  }
+}
+
 @media (max-width: 880px) {
+  .app-layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: relative;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .sidebar-brand {
+    padding: 0 8px 0 0;
+    border-bottom: none;
+    margin-bottom: 0;
+    border-right: 1px solid var(--border);
+    padding-right: 12px;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    padding: 0;
+    gap: 4px;
+    flex: initial;
+  }
+
+  .sidebar-footer {
+    display: none;
+  }
+
   .page-shell {
     padding: 18px;
   }
