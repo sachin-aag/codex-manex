@@ -16,6 +16,7 @@ type DefectRow = {
   defect_code: string | null;
   severity: string | null;
   reported_part_number: string | null;
+  image_url: string | null;
   cost: number | null;
   notes: string | null;
   article_id: string;
@@ -95,6 +96,13 @@ const teamEmailByStory: Record<StoryKey, string> = {
   process: "manufacturing-process@manex.internal",
   design: "rd-reliability@manex.internal",
   handling: "manufacturing-process@manex.internal",
+};
+
+const managerByStory: Record<StoryKey, { name: string; email: string }> = {
+  supplier: { name: "Dr. Frank Richter", email: "frank.richter@manex.internal" },
+  process: { name: "Claudia Steiner", email: "claudia.steiner@manex.internal" },
+  design: { name: "Prof. Martin Holz", email: "martin.holz@manex.internal" },
+  handling: { name: "Claudia Steiner", email: "claudia.steiner@manex.internal" },
 };
 
 function toSeverity(value: string | null): Severity {
@@ -185,20 +193,94 @@ function storySignals(story: StoryKey) {
   };
 }
 
-function buildEmailDraft(caseId: string, story: StoryKey, summary: string) {
-  const team = ownerTeamByStory[story];
-  const to = [teamEmailByStory[story]];
-  const subject = `${caseId}: review requested for ${team}`;
+const severityResponseWindow: Record<Severity, string> = {
+  high: "24 hours",
+  medium: "48 hours",
+  low: "5 business days",
+};
+
+function buildEmailDraft(params: {
+  caseId: string;
+  story: StoryKey;
+  summary: string;
+  severity: Severity;
+  defectCode: string | null;
+  productId: string;
+  partNumber: string | null;
+}) {
+  const team = ownerTeamByStory[params.story];
+  const to = [teamEmailByStory[params.story]];
+  const signals = storySignals(params.story);
+  const responseWindow = severityResponseWindow[params.severity];
+  const subject = `[${params.severity.toUpperCase()}] ${params.caseId}: action required — ${team}`;
   const body =
-    `Hi team,\n\n` +
-    `QM routed ${caseId} to ${team}. Current summary:\n` +
-    `${summary}\n\n` +
-    `Please acknowledge ownership, confirm containment, and return evidence for QM verification.\n\n` +
+    `Hi ${team} team,\n\n` +
+    `QM has routed ${params.caseId} to your team for investigation and resolution.\n\n` +
+    `--- Case details ---\n` +
+    `Severity: ${params.severity.toUpperCase()}\n` +
+    `Product: ${params.productId}\n` +
+    `Part: ${params.partNumber ?? "N/A"}\n` +
+    `Defect code: ${params.defectCode ?? "N/A"}\n\n` +
+    `--- Summary ---\n` +
+    `${params.summary}\n\n` +
+    `--- Preliminary root cause analysis ---\n` +
+    `${signals.why.map((line) => `• ${line}`).join("\n")}\n\n` +
+    `--- Expected response ---\n` +
+    `Given the ${params.severity} severity, please respond within ${responseWindow} with:\n` +
+    `1. Acknowledgement of ownership\n` +
+    `2. Containment status: ${signals.containment}\n` +
+    `3. Permanent fix plan: ${signals.permanentFix}\n\n` +
+    `Return evidence to QM for verification once actions are complete.\n\n` +
     `Thanks,\n${DEFAULT_QM_OWNER}\nQuality Management`;
 
   return {
     to,
     cc: ["qm@manex.internal"],
+    subject,
+    body,
+  };
+}
+
+function buildEscalationEmail(params: {
+  caseId: string;
+  story: StoryKey;
+  summary: string;
+  severity: Severity;
+  defectCode: string | null;
+  productId: string;
+  partNumber: string | null;
+}) {
+  const team = ownerTeamByStory[params.story];
+  const manager = managerByStory[params.story];
+  const signals = storySignals(params.story);
+  const responseWindow = severityResponseWindow[params.severity];
+  const subject = `[ESCALATION] ${params.caseId}: management review required — ${params.severity.toUpperCase()} severity`;
+  const body =
+    `Dear ${manager.name},\n\n` +
+    `This is an escalation notice for ${params.caseId}, currently owned by ${team}.\n\n` +
+    `--- Case details ---\n` +
+    `Severity: ${params.severity.toUpperCase()}\n` +
+    `Product: ${params.productId}\n` +
+    `Part: ${params.partNumber ?? "N/A"}\n` +
+    `Defect code: ${params.defectCode ?? "N/A"}\n` +
+    `Expected response window: ${responseWindow}\n\n` +
+    `--- Summary ---\n` +
+    `${params.summary}\n\n` +
+    `--- Root cause analysis ---\n` +
+    `${signals.why.map((line) => `• ${line}`).join("\n")}\n\n` +
+    `--- Reason for escalation ---\n` +
+    `The ${team} team has not responded within the expected ${responseWindow} window, ` +
+    `or the severity of this case requires management visibility and intervention.\n\n` +
+    `--- Requested actions ---\n` +
+    `1. Review case priority and resource allocation\n` +
+    `2. Ensure containment: ${signals.containment}\n` +
+    `3. Approve permanent fix plan: ${signals.permanentFix}\n\n` +
+    `Please advise on next steps or delegate accordingly.\n\n` +
+    `Thanks,\n${DEFAULT_QM_OWNER}\nQuality Management`;
+
+  return {
+    to: [manager.email],
+    cc: [teamEmailByStory[params.story], "qm@manex.internal"],
     subject,
     body,
   };
@@ -244,6 +326,7 @@ function buildBaseCaseFromDefect(row: DefectRow): QontrolCase {
     productId: row.product_id,
     articleId: row.article_id,
     partNumber: row.reported_part_number ?? "Unknown",
+    imageUrl: row.image_url,
     ownerTeam: ownerTeamByStory[story],
     assignee: "Unassigned",
     qmOwner: DEFAULT_QM_OWNER,
@@ -265,7 +348,24 @@ function buildBaseCaseFromDefect(row: DefectRow): QontrolCase {
     similarTickets: [],
     learnings: [],
     timeline: [],
-    emailDraft: buildEmailDraft(row.defect_id, story, summary),
+    emailDraft: buildEmailDraft({
+      caseId: row.defect_id,
+      story,
+      summary,
+      severity: toSeverity(row.severity),
+      defectCode: row.defect_code,
+      productId: row.product_id,
+      partNumber: row.reported_part_number,
+    }),
+    escalationEmailDraft: buildEscalationEmail({
+      caseId: row.defect_id,
+      story,
+      summary,
+      severity: toSeverity(row.severity),
+      defectCode: row.defect_code,
+      productId: row.product_id,
+      partNumber: row.reported_part_number,
+    }),
   };
 }
 
@@ -295,6 +395,7 @@ function buildBaseCaseFromClaim(row: ClaimRow): QontrolCase {
     productId: row.product_id,
     articleId: row.article_id,
     partNumber: row.reported_part_number ?? "Unknown",
+    imageUrl: null,
     ownerTeam: ownerTeamByStory[story],
     assignee: "Unassigned",
     qmOwner: DEFAULT_QM_OWNER,
@@ -317,21 +418,59 @@ function buildBaseCaseFromClaim(row: ClaimRow): QontrolCase {
     similarTickets: [],
     learnings: [],
     timeline: [],
-    emailDraft: buildEmailDraft(row.field_claim_id, story, summary),
+    emailDraft: buildEmailDraft({
+      caseId: row.field_claim_id,
+      story,
+      summary,
+      severity: toSeverity(row.mapped_defect_severity),
+      defectCode: row.mapped_defect_code,
+      productId: row.product_id,
+      partNumber: row.reported_part_number,
+    }),
+    escalationEmailDraft: buildEscalationEmail({
+      caseId: row.field_claim_id,
+      story,
+      summary,
+      severity: toSeverity(row.mapped_defect_severity),
+      defectCode: row.mapped_defect_code,
+      productId: row.product_id,
+      partNumber: row.reported_part_number,
+    }),
   };
 }
 
 function applyState(base: QontrolCase, state: CaseStateRow | undefined): QontrolCase {
   if (!state) return base;
+  const severityOverride = extractSeverityOverride(state.state_history);
   return {
     ...base,
     state: state.current_state,
     assignee: state.assignee ?? base.assignee,
     ownerTeam: state.owner_team ?? base.ownerTeam,
     qmOwner: state.qm_owner ?? base.qmOwner,
+    severity: severityOverride ?? base.severity,
     lastUpdateAt: state.updated_at ?? base.lastUpdateAt,
     timeline: historyToTimeline(state.state_history),
   };
+}
+
+function extractSeverityOverride(
+  history: StateHistoryEntry[] | null,
+): Severity | undefined {
+  if (!history?.length) return undefined;
+  const byNewest = history
+    .slice()
+    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+  for (const entry of byNewest) {
+    const match = entry.note.match(/severity updated to (low|medium|high)/i);
+    if (match) {
+      const value = match[1].toLowerCase();
+      if (value === "low" || value === "medium" || value === "high") {
+        return value;
+      }
+    }
+  }
+  return undefined;
 }
 
 async function fetchOptionalStates(): Promise<CaseStateRow[]> {
@@ -351,7 +490,7 @@ export async function listCases(): Promise<QontrolCase[]> {
       method: "GET",
       query: {
         select:
-          "defect_id,product_id,defect_ts,source_type,defect_code,severity,reported_part_number,cost,notes,article_id,article_name",
+          "defect_id,product_id,defect_ts,source_type,defect_code,severity,reported_part_number,image_url,cost,notes,article_id,article_name",
         order: "defect_ts.desc",
         limit: "120",
       },
@@ -595,3 +734,4 @@ export async function closeCase(caseId: string) {
 
   return getCaseById(caseId);
 }
+

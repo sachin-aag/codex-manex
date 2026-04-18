@@ -58,6 +58,7 @@ export type QontrolCase = {
   productId: string;
   articleId: string;
   partNumber: string;
+  imageUrl: string | null;
   ownerTeam: string;
   assignee: string;
   qmOwner: string;
@@ -78,6 +79,12 @@ export type QontrolCase = {
   learnings: string[];
   timeline: TimelineEvent[];
   emailDraft: {
+    to: string[];
+    cc: string[];
+    subject: string;
+    body: string;
+  };
+  escalationEmailDraft: {
     to: string[];
     cc: string[];
     subject: string;
