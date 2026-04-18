@@ -30,20 +30,11 @@ How far you take each pillar is up to you. Pick your angle, pick your stack.
 
 ## Start here
 
-1. Grab your handout from the organizers — it has your URLs and credentials.
-2. Read [docs/QUICKSTART.md](docs/QUICKSTART.md) — connect in < 5 minutes.
-3. Read [docs/DATA_PATTERNS.md](docs/DATA_PATTERNS.md) — the four stories
-   in the data define the challenge.
-4. Use [docs/API_REFERENCE.md](docs/API_REFERENCE.md) and
-   [docs/SCHEMA.md](docs/SCHEMA.md) as you build.
-
-## Docs
-
-- [docs/CASE.md](docs/CASE.md) — the challenge, evaluation criteria, and context.
-- [docs/QUICKSTART.md](docs/QUICKSTART.md) — connect in < 5 minutes.
-- [docs/API_REFERENCE.md](docs/API_REFERENCE.md) — endpoints, examples in curl / JS / Python.
-- [docs/SCHEMA.md](docs/SCHEMA.md) — entities, fields, ER diagram.
-- [docs/DATA_PATTERNS.md](docs/DATA_PATTERNS.md) — the four stories in the dataset.
+1. [docs/CASE.md](docs/CASE.md) — the challenge, evaluation criteria, and context.
+2. [docs/QUICKSTART.md](docs/QUICKSTART.md) — connect in < 5 minutes.
+3. [docs/API_REFERENCE.md](docs/API_REFERENCE.md) — endpoints, examples in curl / JS / Python.
+4. [docs/SCHEMA.md](docs/SCHEMA.md) — entities, fields, ER diagram.
+5. [docs/DATA_PATTERNS.md](docs/DATA_PATTERNS.md) — the four stories in the dataset.
 
 ## Defect images
 
