@@ -24,3 +24,11 @@ pip-wheel-metadata/
 # Tool/runtime artifacts
 .python_packages/
 outputs/
+
+# Node/Next.js artifacts
+node_modules/
+.next/
+dist/
+coverage/
+*.log
+*.tsbuildinfo
