@@ -1,16 +1,14 @@
 "use client";
 
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import {
   clarityLabel,
-  mockCases,
   storyLabel,
   type CaseState,
   type QontrolCase,
   type Severity,
   type SimilarTicket,
-  type StoryKey,
 } from "@/lib/qontrol-data";
 
 type CaseMap = Record<string, QontrolCase>;
@@ -25,27 +23,12 @@ const boardColumns: { key: CaseState; label: string }[] = [
   { key: "closed", label: "Closed" },
 ];
 
-const ownerAssigneeByStory: Record<StoryKey, string> = {
-  supplier: "Mira Vogel",
-  process: "Tobias Kern",
-  design: "Sofia Lange",
-  handling: "Jonas Frei",
-};
-
-const ownerTeamLabelByStory: Record<StoryKey, string> = {
-  supplier: "Supply Chain",
-  process: "Manufacturing / Process",
-  design: "R&D",
-  handling: "Manufacturing / Process",
-};
-
 export function QontrolApp() {
-  const [cases, setCases] = useState<CaseMap>(
-    Object.fromEntries(mockCases.map((item) => [item.id, item])),
-  );
-  const [selectedId, setSelectedId] = useState<string>(mockCases[0].id);
-
-  const selectedCase = cases[selectedId];
+  const [cases, setCases] = useState<CaseMap>({});
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isMutating, setIsMutating] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const orderedCases = useMemo(() => {
     return Object.values(cases).sort((a, b) => {
@@ -61,6 +44,45 @@ export function QontrolApp() {
       );
     });
   }, [cases]);
+  const selectedCase =
+    (selectedId ? cases[selectedId] : undefined) ?? orderedCases[0];
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCases() {
+      try {
+        setIsLoading(true);
+        setActionError(null);
+        const response = await fetch("/api/cases", { method: "GET" });
+        if (!response.ok) {
+          throw new Error(`Failed to load cases: ${response.status}`);
+        }
+        const payload = (await response.json()) as { cases: QontrolCase[] };
+        if (cancelled) return;
+        const nextMap = Object.fromEntries(
+          payload.cases.map((item) => [item.id, item]),
+        );
+        setCases(nextMap);
+        if (!selectedId && payload.cases.length > 0) {
+          setSelectedId(payload.cases[0].id);
+        }
+      } catch (error) {
+        if (cancelled) return;
+        const message =
+          error instanceof Error ? error.message : "Failed to load cases.";
+        setActionError(message);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    void loadCases();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function updateCase(id: string, updater: (draft: QontrolCase) => QontrolCase) {
     setCases((current) => ({
@@ -69,37 +91,41 @@ export function QontrolApp() {
     }));
   }
 
+  async function mutateCase(caseId: string, action: "assign" | "close") {
+    setActionError(null);
+    setIsMutating(true);
+    try {
+      const response = await fetch(`/api/cases/${caseId}/${action}`, {
+        method: "POST",
+      });
+      const payload = (await response.json()) as {
+        case?: QontrolCase;
+        error?: string;
+        details?: string;
+      };
+      if (!response.ok || !payload.case) {
+        throw new Error(payload.details ?? payload.error ?? "Mutation failed.");
+      }
+      setCases((current) => ({
+        ...current,
+        [payload.case!.id]: payload.case!,
+      }));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to update case.";
+      setActionError(message);
+    } finally {
+      setIsMutating(false);
+    }
+  }
+
   function handleApproveAndRoute() {
     if (!selectedCase) return;
-
-    updateCase(selectedCase.id, (current) => ({
-      ...current,
-      state: "assigned",
-      assignee: ownerAssigneeByStory[current.story],
-      ownerTeam: ownerTeamLabelByStory[current.story],
-      external: current.external
-        ? {
-            ...current.external,
-            status: "In Progress",
-            assignee: ownerAssigneeByStory[current.story],
-            lastUpdate: formatShortNow(),
-            sync: "mock synced",
-          }
-        : undefined,
-      timeline: [
-        {
-          id: crypto.randomUUID(),
-          at: new Date().toISOString(),
-          title: "QM approved routing",
-          description: `Case routed to ${ownerTeamLabelByStory[current.story]}.`,
-          source: "qm",
-        },
-        ...current.timeline,
-      ],
-    }));
+    void mutateCase(selectedCase.id, "assign");
   }
 
   function handleSendEmail() {
+    if (!selectedCase) return;
     updateCase(selectedCase.id, (current) => ({
       ...current,
       timeline: [
@@ -116,6 +142,7 @@ export function QontrolApp() {
   }
 
   function handleCreateMockTicket() {
+    if (!selectedCase) return;
     updateCase(selectedCase.id, (current) => ({
       ...current,
       external: current.external
@@ -123,7 +150,7 @@ export function QontrolApp() {
             ...current.external,
             status: current.state === "assigned" ? "In Progress" : "Draft created",
             lastUpdate: formatShortNow(),
-            sync: "mock synced",
+            sync: "synced",
           }
         : {
             system: "Jira",
@@ -134,7 +161,7 @@ export function QontrolApp() {
             status: "Draft created",
             assignee: current.assignee,
             lastUpdate: formatShortNow(),
-            sync: "mock synced",
+            sync: "synced",
           },
       timeline: [
         {
@@ -150,6 +177,7 @@ export function QontrolApp() {
   }
 
   function handleMockInboundUpdate() {
+    if (!selectedCase) return;
     updateCase(selectedCase.id, (current) => ({
       ...current,
       lastUpdateAt: new Date().toISOString(),
@@ -158,7 +186,7 @@ export function QontrolApp() {
             ...current.external,
             status: "Ready for QM verification",
             lastUpdate: formatShortNow(),
-            sync: "mock synced",
+            sync: "synced",
           }
         : undefined,
       state: "returned_to_qm_for_verification",
@@ -177,6 +205,7 @@ export function QontrolApp() {
   }
 
   function handleStartVerification() {
+    if (!selectedCase) return;
     updateCase(selectedCase.id, (current) => ({
       ...current,
       timeline: [
@@ -193,28 +222,12 @@ export function QontrolApp() {
   }
 
   function handleCloseCase() {
-    updateCase(selectedCase.id, (current) => ({
-      ...current,
-      state: "closed",
-      timeline: [
-        {
-          id: crypto.randomUUID(),
-          at: new Date().toISOString(),
-          title: "Case closed with learnings",
-          description:
-            "QM verified the fix and captured final learnings for reuse.",
-          source: "qm",
-        },
-        ...current.timeline,
-      ],
-      learnings: [
-        ...current.learnings,
-        "Closure confirmed after QM verification; this case can now guide similar future tickets.",
-      ],
-    }));
+    if (!selectedCase) return;
+    void mutateCase(selectedCase.id, "close");
   }
 
   function handleReroute() {
+    if (!selectedCase) return;
     updateCase(selectedCase.id, (current) => ({
       ...current,
       state: "unassigned",
@@ -238,6 +251,7 @@ export function QontrolApp() {
   }
 
   function handleEmailChange(value: string) {
+    if (!selectedCase) return;
     updateCase(selectedCase.id, (current) => ({
       ...current,
       emailDraft: {
@@ -341,6 +355,18 @@ export function QontrolApp() {
         </div>
 
         <div className="detail-shell">
+          {isLoading ? (
+            <section className="detail-header card-surface">
+              <p>Loading cases...</p>
+            </section>
+          ) : null}
+          {!isLoading && !selectedCase ? (
+            <section className="detail-header card-surface">
+              <p>No cases found. Check API credentials and available data.</p>
+            </section>
+          ) : null}
+          {selectedCase ? (
+            <>
           <section className="detail-header card-surface">
             <div>
               <div className="detail-title-row">
@@ -360,7 +386,12 @@ export function QontrolApp() {
             </div>
             <div className="header-actions">
               {selectedCase.state === "unassigned" && selectedCase.clarity !== "warning" ? (
-                <button className="primary-button" onClick={handleApproveAndRoute} type="button">
+                <button
+                  className="primary-button"
+                  disabled={isMutating}
+                  onClick={handleApproveAndRoute}
+                  type="button"
+                >
                   Approve and route
                 </button>
               ) : null}
@@ -370,7 +401,12 @@ export function QontrolApp() {
                 </button>
               ) : null}
               {selectedCase.state !== "closed" ? (
-                <button className="ghost-button" onClick={handleCloseCase} type="button">
+                <button
+                  className="ghost-button"
+                  disabled={isMutating}
+                  onClick={handleCloseCase}
+                  type="button"
+                >
                   Close case
                 </button>
               ) : null}
@@ -384,6 +420,11 @@ export function QontrolApp() {
 
           <section className="detail-grid">
             <div className="detail-main">
+              {actionError ? (
+                <Panel title="Update error" description="Most recent backend error.">
+                  <p>{actionError}</p>
+                </Panel>
+              ) : null}
               <Panel title="Operational overview" description="Top priority signals for QM right now.">
                 <div className="overview-grid">
                   <MetricBlock label="Assigned to" value={selectedCase.assignee} />
@@ -561,6 +602,8 @@ export function QontrolApp() {
               </Panel>
             </div>
           </section>
+            </>
+          ) : null}
         </div>
       </section>
     </main>

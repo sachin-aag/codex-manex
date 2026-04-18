@@ -14,7 +14,13 @@
 - QM verification close / reroute flow
 - Learnings capture in the case history
 
-## What is mocked
+## Data mode
+
+- Kanban reads real defects/claims from PostgREST (`v_defect_detail`, `v_field_claim_detail`).
+- Case state is persisted in `qontrol_case_state` (see migration `supabase/migrations/00003_qontrol_case_state.sql`).
+- Assignment and close actions write back to `product_action`; close also writes to `rework` when a `defect_id` is available.
+
+## What is still mocked
 
 - External ticketing integrations
 - Two-way sync from systems like Jira
@@ -22,6 +28,19 @@
 - Call scheduling / escalation workflows
 
 The UI shows where those actions live in the product and simulates the workflow locally.
+
+## Environment
+
+Create `qontrol/.env.local` from `.env.example`:
+
+```bash
+cp .env.example .env.local
+```
+
+Required values:
+
+- `MANEX_API_URL` - your team PostgREST base URL (for example `http://<vm>:8001`)
+- `MANEX_API_KEY` - your team anon API key
 
 ## Run locally
 
