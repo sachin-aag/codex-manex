@@ -1532,6 +1532,10 @@ function buildGitHubIssueBody(caseItem: QontrolCase) {
   return lines.join("\n");
 }
 
+function shouldAddCaseToGitHubBoard(caseItem: QontrolCase) {
+  return caseItem.ownerTeam === "R&D";
+}
+
 function buildExternalTicket(params: {
   caseItem: QontrolCase;
   issue: Awaited<ReturnType<typeof getGitHubIssue>>;
@@ -1541,6 +1545,7 @@ function buildExternalTicket(params: {
   syncNote?: string;
 }) {
   const config = getGitHubConfig();
+  const projectItemId = params.projectItemId ?? params.caseItem.external?.projectItemId;
   return {
     system: "GitHub" as const,
     ticketId: `#${params.issue.number}`,
@@ -1552,8 +1557,8 @@ function buildExternalTicket(params: {
     sync: params.sync ?? "synced",
     repo: config.repoSlug,
     issueNumber: params.issue.number,
-    projectItemId: params.projectItemId ?? params.caseItem.external?.projectItemId,
-    projectUrl: getGitHubProjectUrl(),
+    projectItemId,
+    projectUrl: projectItemId ? getGitHubProjectUrl() : undefined,
     lastSyncNote: params.syncNote,
   };
 }
@@ -1638,9 +1643,11 @@ export async function connectCaseToGitHub(caseId: string) {
       : await createGitHubIssue({ title, body });
 
   const projectItem =
-    current.external?.projectItemId != null
-      ? { id: current.external.projectItemId }
-      : await addIssueToGitHubProject(issue.number);
+    shouldAddCaseToGitHubBoard(current)
+      ? current.external?.projectItemId != null
+        ? { id: current.external.projectItemId }
+        : await addIssueToGitHubProject(issue.number)
+      : null;
 
   const external = buildExternalTicket({
     caseItem: current,

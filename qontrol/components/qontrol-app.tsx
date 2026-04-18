@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import {
   clarityLabel,
@@ -12,8 +12,6 @@ import {
 } from "@/lib/qontrol-data";
 
 type CaseMap = Record<string, QontrolCase>;
-const MIN_BOARD_WIDTH_PERCENT = 35;
-const MAX_BOARD_WIDTH_PERCENT = 72;
 
 const boardColumns: { key: CaseState; label: string }[] = [
   { key: "unassigned", label: "Unassigned" },
@@ -25,14 +23,29 @@ const boardColumns: { key: CaseState; label: string }[] = [
   { key: "closed", label: "Closed" },
 ];
 
+function isRdBoardCase(caseItem: QontrolCase) {
+  return caseItem.ownerTeam === "R&D";
+}
+
+function getMockToolName(caseItem: QontrolCase) {
+  switch (caseItem.story) {
+    case "supplier":
+      return "Service Cloud";
+    case "process":
+      return "QMS CAPA";
+    case "handling":
+      return "QMS work order";
+    default:
+      return "team handoff tool";
+  }
+}
+
 export function QontrolApp() {
   const [cases, setCases] = useState<CaseMap>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [boardWidthPercent, setBoardWidthPercent] = useState(52);
   const [isLoading, setIsLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const workspaceRef = useRef<HTMLElement>(null);
 
   const orderedCases = useMemo(() => {
     return Object.values(cases).sort((a, b) => {
@@ -49,12 +62,9 @@ export function QontrolApp() {
     });
   }, [cases]);
   const selectedCase = selectedId ? cases[selectedId] : undefined;
+  const usesGitHubBoard = selectedCase ? isRdBoardCase(selectedCase) : false;
+  const mockToolName = selectedCase ? getMockToolName(selectedCase) : null;
   const showDetailPane = selectedId !== null;
-  const workspaceStyle = showDetailPane
-    ? ({
-        "--board-width": `${boardWidthPercent}%`,
-      } as CSSProperties)
-    : undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -148,6 +158,7 @@ export function QontrolApp() {
         case?: QontrolCase;
         error?: string;
         details?: string;
+        warning?: string;
       };
       if (!response.ok || !payload.case) {
         throw new Error(payload.details ?? payload.error ?? "Mutation failed.");
@@ -156,6 +167,7 @@ export function QontrolApp() {
         ...current,
         [payload.case!.id]: payload.case!,
       }));
+      setActionError(payload.warning ?? null);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to update case.";
@@ -312,6 +324,23 @@ export function QontrolApp() {
     void mutateGitHub(selectedCase.id, "connect");
   }
 
+  function handleMockExternalTool() {
+    if (!selectedCase || !mockToolName) return;
+    updateCase(selectedCase.id, (current) => ({
+      ...current,
+      timeline: [
+        {
+          id: crypto.randomUUID(),
+          at: new Date().toISOString(),
+          title: `${mockToolName} handoff prepared`,
+          description: `Mock ${mockToolName} action queued for ${current.ownerTeam} while GitHub remains the shared tracker.`,
+          source: "qm",
+        },
+        ...current.timeline,
+      ],
+    }));
+  }
+
   function handleSyncGitHub() {
     if (!selectedCase) return;
     void mutateGitHub(selectedCase.id, "sync");
@@ -384,42 +413,6 @@ export function QontrolApp() {
     setActionError(null);
   }
 
-  function handleResizerPointerDown(event: React.PointerEvent<HTMLButtonElement>) {
-    if (!showDetailPane) return;
-    const workspace = workspaceRef.current;
-    if (!workspace) return;
-
-    event.preventDefault();
-    const rect = workspace.getBoundingClientRect();
-    const updateFromPointer = (clientX: number) => {
-      const nextPercent = ((clientX - rect.left) / rect.width) * 100;
-      setBoardWidthPercent(
-        clamp(nextPercent, MIN_BOARD_WIDTH_PERCENT, MAX_BOARD_WIDTH_PERCENT),
-      );
-    };
-
-    const handlePointerMove = (pointerEvent: PointerEvent) => {
-      updateFromPointer(pointerEvent.clientX);
-    };
-
-    const handlePointerUp = () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-  }
-
-  function handleResizerKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
-    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-    event.preventDefault();
-    const delta = event.key === "ArrowLeft" ? -3 : 3;
-    setBoardWidthPercent((current) =>
-      clamp(current + delta, MIN_BOARD_WIDTH_PERCENT, MAX_BOARD_WIDTH_PERCENT),
-    );
-  }
-
   return (
     <main className="page-shell">
       <section className="hero-strip">
@@ -447,11 +440,7 @@ export function QontrolApp() {
         </div>
       </section>
 
-      <section
-        className={`workspace-grid ${showDetailPane ? "with-detail" : "board-only"}`}
-        ref={workspaceRef}
-        style={workspaceStyle}
-      >
+      <section className={`workspace-grid ${showDetailPane ? "with-detail" : "board-only"}`}>
         <div className="board-shell">
           <div className="board-header">
             <div>
@@ -550,16 +539,6 @@ export function QontrolApp() {
 
         {showDetailPane ? (
           <>
-            <button
-              aria-label="Resize board and ticket details"
-              aria-valuemax={MAX_BOARD_WIDTH_PERCENT}
-              aria-valuemin={MIN_BOARD_WIDTH_PERCENT}
-              aria-valuenow={Math.round(boardWidthPercent)}
-              className="workspace-resizer"
-              onKeyDown={handleResizerKeyDown}
-              onPointerDown={handleResizerPointerDown}
-              type="button"
-            />
             <div className="detail-shell">
               {selectedCase ? (
             <>
@@ -805,7 +784,14 @@ export function QontrolApp() {
                 </div>
               </details>
 
-              <Panel title="External board" description="Public GitHub issue + board sync for outbound ownership and inbound updates.">
+              <Panel
+                title={usesGitHubBoard ? "External board" : "External handoff"}
+                description={
+                  usesGitHubBoard
+                    ? "GitHub issue + board sync for R&D ownership and inbound updates."
+                    : "GitHub issue is shared on route; the downstream team tool stays mocked outside R&D."
+                }
+              >
                 <div className="stack-list">
                   <SideRow label="System" value={selectedCase.external?.system ?? "GitHub"} />
                   <SideRow label="Ticket" value={selectedCase.external?.ticketId ?? "Not created"} />
@@ -813,6 +799,20 @@ export function QontrolApp() {
                   <SideRow label="Sync" value={selectedCase.external?.sync ?? "awaiting push"} />
                   <SideRow label="Last external update" value={selectedCase.external?.lastUpdate ?? "None"} />
                   <SideRow label="Repo" value={selectedCase.external?.repo ?? "Not configured"} />
+                  <SideRow
+                    label="Board"
+                    value={
+                      usesGitHubBoard
+                        ? selectedCase.external?.projectItemId
+                          ? "GitHub Project"
+                          : "Pending board sync"
+                        : "Skipped outside R&D"
+                    }
+                  />
+                  <SideRow
+                    label="Team tool"
+                    value={usesGitHubBoard ? "GitHub" : mockToolName ?? "Mocked"}
+                  />
                 </div>
                 {selectedCase.external?.url ? (
                   <a
@@ -825,14 +825,25 @@ export function QontrolApp() {
                   </a>
                 ) : null}
                 <div className="action-stack top-gap">
-                  <button
-                    className="secondary-button"
-                    disabled={isMutating}
-                    onClick={handleConnectBoard}
-                    type="button"
-                  >
-                    {selectedCase.external?.issueNumber ? "Update GitHub issue" : "Create GitHub issue"}
-                  </button>
+                  {usesGitHubBoard ? (
+                    <button
+                      className="secondary-button"
+                      disabled={isMutating}
+                      onClick={handleConnectBoard}
+                      type="button"
+                    >
+                      {selectedCase.external?.issueNumber ? "Update GitHub issue" : "Create GitHub issue"}
+                    </button>
+                  ) : (
+                    <button
+                      className="secondary-button"
+                      disabled={isMutating || !selectedCase.external?.issueNumber}
+                      onClick={handleMockExternalTool}
+                      type="button"
+                    >
+                      {mockToolName ? `Mock ${mockToolName}` : "Mock external handoff"}
+                    </button>
+                  )}
                   <button
                     className="ghost-button"
                     disabled={isMutating || !selectedCase.external?.issueNumber}
@@ -917,10 +928,6 @@ export function QontrolApp() {
       </section>
     </main>
   );
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
 }
 
 function Panel({

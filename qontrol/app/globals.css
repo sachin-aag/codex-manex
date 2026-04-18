@@ -21,6 +21,9 @@
   --shadow-md: 0 18px 40px rgba(23, 33, 43, 0.08);
   --radius-card: 14px;
   --radius-button: 10px;
+  --sidebar-width-expanded: 220px;
+  --sidebar-width-collapsed: 76px;
+  --detail-pane-width: 600px;
 }
 
 * {
@@ -63,26 +66,39 @@ button {
 }
 
 .sidebar {
-  width: 220px;
+  width: var(--sidebar-width-expanded);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   background: var(--surface);
   border-right: 1px solid var(--border);
-  padding: 20px 0;
+  padding: 16px 0 20px;
   position: sticky;
   top: 0;
   height: 100vh;
   overflow-y: auto;
+  transition: width 0.18s ease;
+}
+
+.sidebar.collapsed {
+  width: var(--sidebar-width-collapsed);
+}
+
+.sidebar-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
 }
 
 .sidebar-brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 20px 20px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
 .sidebar-logo {
@@ -102,6 +118,34 @@ button {
   font-weight: 700;
   font-size: 17px;
   color: var(--text-primary);
+}
+
+.sidebar-toggle {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.sidebar-toggle:hover {
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.sidebar-toggle:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand) 45%, white);
+  outline-offset: 2px;
 }
 
 .sidebar-nav {
@@ -155,6 +199,32 @@ button {
   background: var(--surface-muted);
   border-radius: 8px;
   text-align: center;
+}
+
+.sidebar.collapsed .sidebar-top {
+  flex-direction: column;
+  padding-inline: 0;
+  gap: 12px;
+}
+
+.sidebar.collapsed .sidebar-brand {
+  justify-content: center;
+  flex: initial;
+}
+
+.sidebar.collapsed .sidebar-brand span,
+.sidebar.collapsed .sidebar-link span,
+.sidebar.collapsed .sidebar-footer {
+  display: none;
+}
+
+.sidebar.collapsed .sidebar-nav {
+  padding-inline: 8px;
+}
+
+.sidebar.collapsed .sidebar-link {
+  justify-content: center;
+  padding-inline: 0;
 }
 
 /* ---- Existing page shell (now inside sidebar layout) ---- */
@@ -243,12 +313,13 @@ button {
 }
 
 .workspace-grid.with-detail {
-  grid-template-columns: minmax(360px, var(--board-width, 52%)) 10px minmax(520px, 1fr);
+  grid-template-columns: minmax(0, 1fr) var(--detail-pane-width);
   gap: 16px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .workspace-grid.with-detail .detail-shell {
+  width: min(100%, var(--detail-pane-width));
   margin-top: -12px;
 }
 
@@ -261,32 +332,6 @@ button {
   margin: 0 0 12px;
   color: var(--text-secondary);
   font-size: 13px;
-}
-
-.workspace-resizer {
-  width: 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: linear-gradient(
-    to right,
-    transparent 0,
-    transparent 3px,
-    var(--border-strong) 3px,
-    var(--border-strong) 7px,
-    transparent 7px
-  );
-  cursor: col-resize;
-  padding: 0;
-  align-self: stretch;
-}
-
-.workspace-resizer:hover {
-  border-color: color-mix(in srgb, var(--brand) 30%, var(--border));
-}
-
-.workspace-resizer:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--brand) 45%, white);
-  outline-offset: 2px;
 }
 
 .board-header,
@@ -1088,18 +1133,15 @@ button {
   margin-top: 14px;
 }
 
-@media (max-width: 1400px) {
+@media (max-width: 1080px) {
   .workspace-grid,
   .workspace-grid.with-detail {
     grid-template-columns: 1fr;
   }
 
   .workspace-grid.with-detail .detail-shell {
+    width: 100%;
     margin-top: 0;
-  }
-
-  .workspace-resizer {
-    display: none;
   }
 
   .detail-grid {
@@ -1362,10 +1404,10 @@ button {
     align-items: center;
   }
 
-  .sidebar-brand {
+  .sidebar-top {
     padding: 0 8px 0 0;
-    border-bottom: none;
     margin-bottom: 0;
+    border-bottom: none;
     border-right: 1px solid var(--border);
     padding-right: 12px;
   }
@@ -1375,6 +1417,22 @@ button {
     padding: 0;
     gap: 4px;
     flex: initial;
+  }
+
+  .sidebar.collapsed {
+    width: 100%;
+  }
+
+  .sidebar.collapsed .sidebar-top {
+    flex-direction: row;
+    padding-left: 0;
+    padding-right: 12px;
+    gap: 8px;
+  }
+
+  .sidebar.collapsed .sidebar-link {
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
   .sidebar-footer {

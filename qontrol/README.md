@@ -10,7 +10,7 @@
 - Story-aware triage visualizations
 - Similar tickets panel
 - Editable assignment email draft
-- GitHub issue creation for public board handoff
+- GitHub issue creation during approve-and-route
 - GitHub webhook sync for issue / comment / project status updates
 - QM verification close / reroute flow
 - Learnings capture in the case history
@@ -26,7 +26,7 @@
 - Email delivery
 - Call scheduling / escalation workflows
 
-The UI now uses GitHub as the first real external board target, but email delivery and call scheduling remain simulated.
+The UI now creates a GitHub issue when QM approves and routes a case. GitHub Project board sync is limited to `R&D` cases, while other team handoff tools remain mocked in the UI. Email delivery and call scheduling also remain simulated.
 
 ## Environment
 
