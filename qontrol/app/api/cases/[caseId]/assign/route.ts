@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { assignCase } from "@/lib/db/cases";
+import { assignCase, connectCaseToGitHub } from "@/lib/db/cases";
 
 type RouteContext = {
   params: Promise<{ caseId: string }>;
@@ -9,8 +9,18 @@ type RouteContext = {
 export async function POST(_request: Request, context: RouteContext) {
   try {
     const { caseId } = await context.params;
-    const updated = await assignCase(caseId);
-    return NextResponse.json({ case: updated });
+    const assigned = await assignCase(caseId);
+
+    try {
+      const updated = await connectCaseToGitHub(caseId);
+      return NextResponse.json({ case: updated });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      return NextResponse.json({
+        case: assigned,
+        warning: `Case routed, but GitHub issue sync failed: ${message}`,
+      });
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(

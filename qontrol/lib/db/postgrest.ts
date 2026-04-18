@@ -3,6 +3,8 @@ type PostgrestMethod = "GET" | "POST" | "PATCH";
 type PostgrestRequestOptions = {
   method?: PostgrestMethod;
   query?: Record<string, string>;
+  /** Duplicate keys (PostgREST AND), e.g. timestamptz range filters */
+  queryAppend?: [string, string][];
   body?: unknown;
   prefer?: string;
 };
@@ -27,9 +29,15 @@ export async function postgrestRequest<T>(
 ): Promise<T> {
   const { baseUrl, apiKey } = getPostgrestConfig();
   const method = options.method ?? "GET";
-  const queryString = options.query
-    ? `?${new URLSearchParams(options.query).toString()}`
-    : "";
+  let queryString = "";
+  if (options.query || options.queryAppend?.length) {
+    const params = new URLSearchParams();
+    if (options.query) {
+      for (const [k, v] of Object.entries(options.query)) params.set(k, v);
+    }
+    for (const [k, v] of options.queryAppend ?? []) params.append(k, v);
+    queryString = `?${params.toString()}`;
+  }
   const url = `${baseUrl}/${path}${queryString}`;
 
   const response = await fetch(url, {

@@ -124,22 +124,57 @@ function deptFromPath(pathname: string): { label: string; accent: string } {
   return { label: "QE · Management view", accent: "qm" };
 }
 
-export function Sidebar() {
+type SidebarProps = {
+  collapsed: boolean;
+  onToggle: () => void;
+};
+
+export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
     if (href === "#") return false;
-    return pathname.startsWith(href);
+    if (href === "/portfolio") {
+      return pathname === "/portfolio" || pathname === "/portfolio/";
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
   }
 
   const footer = deptFromPath(pathname);
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-brand">
-        <div className="sidebar-logo">Q</div>
-        <span>Qontrol</span>
+    <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
+      <div className="sidebar-top">
+        <div className="sidebar-brand">
+          <div className="sidebar-logo">Q</div>
+          <span>Qontrol</span>
+        </div>
+        <button
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="sidebar-toggle"
+          onClick={onToggle}
+          type="button"
+        >
+          <svg
+            aria-hidden="true"
+            fill="none"
+            height="16"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            width="16"
+          >
+            {collapsed ? (
+              <polyline points="9 18 15 12 9 6" />
+            ) : (
+              <polyline points="15 18 9 12 15 6" />
+            )}
+          </svg>
+        </button>
       </div>
 
       <nav className="sidebar-nav">
@@ -149,6 +184,7 @@ export function Sidebar() {
             key={item.href}
             href={item.href}
             className={`sidebar-link ${isActive(item.href) ? "active" : ""}`}
+            title={collapsed ? item.label : undefined}
           >
             {item.icon}
             <span>{item.label}</span>
@@ -166,6 +202,7 @@ export function Sidebar() {
               className={`sidebar-link sidebar-link-dept dept-${item.deptAccent} ${
                 isActive(item.href) ? "active" : ""
               }`}
+              title={collapsed ? item.label : undefined}
             >
               {item.icon}
               <span className="sidebar-link-text">

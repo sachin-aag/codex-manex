@@ -1,46 +1,98 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ClaimLagScatter } from "@/components/dashboard/ClaimLagScatter";
+import { CostWaterfall } from "@/components/dashboard/CostWaterfall";
+import { DefectTrendChart } from "@/components/dashboard/DefectTrendChart";
+import { ParetoChart } from "@/components/dashboard/ParetoChart";
+import { SectionHeatmap } from "@/components/dashboard/SectionHeatmap";
+import { SeverityChart } from "@/components/dashboard/SeverityChart";
+import {
+  PortfolioTimeRange,
+  type TimeRangeValue,
+} from "@/components/portfolio-time-range";
+import { QualityBriefingPanel } from "@/components/quality-briefing-panel";
+import { lastNWeeksRangeUtc } from "@/lib/date-range";
+import type { DashboardKpis } from "@/lib/db/kpis";
 import type {
+  BatchRankingRow,
   ClaimLagRow,
-  DefectTrendRow,
-  LearningSignal,
+  ClaimScatterPoint,
+  CostBreakdownData,
   ParetoRow,
   PortfolioKpis,
-  SeverityWeekRow,
+  SectionHeatmapData,
+  SeverityStackRow,
+  SeverityTotals,
+  WeeklyTrendPoint,
 } from "@/lib/portfolio-data";
-import Link from "next/link";
 
 type Backlog = { open: number; done: number; total: number };
 
-type PortfolioData = {
-  kpis: PortfolioKpis;
+type PortfolioPayload = {
+  kpis?: PortfolioKpis;
+  range?: { from: string; to: string } | null;
   pareto: ParetoRow[];
-  severityTimeline: SeverityWeekRow[];
-  defectTrend: DefectTrendRow[];
+  weeklyRollup: WeeklyTrendPoint[];
   claimLag: ClaimLagRow[];
-  learnings: LearningSignal[];
   backlog: Backlog;
+  sectionHeatmap: SectionHeatmapData;
+  severityByOccurrence: SeverityStackRow[];
+  costBreakdown: CostBreakdownData;
+  claimScatter: ClaimScatterPoint[];
+  bomBatchRanking: BatchRankingRow[];
+  severityTotals?: SeverityTotals;
 };
 
 export default function PortfolioPage() {
-  const [data, setData] = useState<PortfolioData | null>(null);
+  const [data, setData] = useState<PortfolioPayload | null>(null);
+  const [dashKpis, setDashKpis] = useState<DashboardKpis | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState<TimeRangeValue>(() =>
+    lastNWeeksRangeUtc(8),
+  );
+  const [isFetching, setIsFetching] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setIsFetching(true);
+      setErr(null);
       try {
-        const res = await fetch("/api/portfolio");
-        if (!res.ok) throw new Error((await res.json()).error ?? "Failed");
-        const json = await res.json();
+        const qs =
+          timeRange == null
+            ? ""
+            : `?from=${encodeURIComponent(timeRange.from)}&to=${encodeURIComponent(timeRange.to)}`;
+        const [resPortfolio, resKpis] = await Promise.all([
+          fetch(`/api/portfolio${qs}`),
+          fetch(`/api/cases/kpis${qs}`),
+        ]);
+        if (!resPortfolio.ok) {
+          const j = await resPortfolio.json().catch(() => ({}));
+          throw new Error(j.error ?? j.details ?? "Failed to load portfolio");
+        }
+        if (!resKpis.ok) {
+          const j = await resKpis.json().catch(() => ({}));
+          throw new Error(j.error ?? j.details ?? "Failed to load KPIs");
+        }
+        const json = (await resPortfolio.json()) as PortfolioPayload;
         if (!cancelled) setData(json);
+        if (!cancelled) {
+          setDashKpis((await resKpis.json()) as DashboardKpis);
+        }
       } catch (e) {
-        if (!cancelled) setErr(e instanceof Error ? e.message : "Error");
+        if (!cancelled) {
+          setErr(e instanceof Error ? e.message : "Error loading data");
+        }
+      } finally {
+        if (!cancelled) setIsFetching(false);
       }
     })();
-    return () => { cancelled = true; };
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [timeRange]);
 
   if (err) {
     return (
@@ -48,7 +100,7 @@ export default function PortfolioPage() {
         <div className="card-surface panel">
           <p style={{ color: "var(--danger)" }}>{err}</p>
           <p style={{ color: "var(--text-secondary)", marginTop: 8 }}>
-            Check that <code>MANEX_API_URL</code> and <code>MANEX_API_KEY</code> are set in <code>.env.local</code>.
+            Verify the quality data connection is configured for this environment.
           </p>
         </div>
       </main>
@@ -61,7 +113,7 @@ export default function PortfolioPage() {
         <section className="hero-strip">
           <div>
             <p className="eyebrow">QM Portfolio</p>
-            <h1>Loading portfolio data…</h1>
+            <h1>Loading portfolio…</h1>
           </div>
         </section>
         <div className="pf-loading-grid">
@@ -73,241 +125,247 @@ export default function PortfolioPage() {
     );
   }
 
-  const { kpis, pareto, severityTimeline, defectTrend, claimLag, learnings, backlog } = data;
+  const {
+    pareto,
+    weeklyRollup,
+    claimLag,
+    backlog,
+    sectionHeatmap,
+    severityByOccurrence,
+    severityTotals,
+    costBreakdown,
+    claimScatter,
+    bomBatchRanking,
+  } = data;
+
+  const batchTop = bomBatchRanking.slice(0, 20);
+  const claimLagMax = Math.max(...claimLag.map((c) => c.cnt), 1);
 
   return (
     <main className="page-shell">
-      <section className="hero-strip">
+      <section className="hero-strip portfolio-hero-headline">
         <div>
           <p className="eyebrow">QM Portfolio</p>
           <h1>Quality Engineering — management view</h1>
           <p className="hero-copy">
-            Defects (D) and field claims (FC) in one place. Automated learnings from
-            root-cause stories, initiative tracking, and performance improvement signals.
+            Defects and field claims in one place: trends, Pareto analysis,
+            detection vs. origin, cost of poor quality, and supplier batch signals.
           </p>
         </div>
-        <div className="hero-stats">
-          <KpiTile label="Defects (total)" value={String(kpis.totalDefects)} />
-          <KpiTile label="Claims (total)" value={String(kpis.totalClaims)} />
-          <KpiTile label="Defect rate (recent)" value={kpis.defectRateRecent.toFixed(3)} />
-          <KpiTile label="Open initiatives" value={String(kpis.openInitiatives)} />
-          <KpiTile label="Closed initiatives" value={String(kpis.closedInitiatives)} />
-          <KpiTile label="Top defect code" value={kpis.topDefectCode} />
+      </section>
+
+      <PortfolioTimeRange
+        value={timeRange}
+        onChange={setTimeRange}
+        isFetching={isFetching}
+      />
+
+      <section className="kpi-bar" aria-label="Quality KPIs">
+        <div className="kpi-card">
+          <span className="kpi-card-label">Defect rate</span>
+          <span className="kpi-card-value">
+            {dashKpis ? dashKpis.defectRateLabel : "—"}
+          </span>
+          <p className="kpi-card-hint">Defects per products built</p>
+        </div>
+        <div className="kpi-card">
+          <span className="kpi-card-label">Open actions</span>
+          <span className="kpi-card-value">
+            {dashKpis ? String(dashKpis.openActions) : "—"}
+          </span>
+          <p className="kpi-card-hint">Pending corrective actions</p>
+        </div>
+        <div className="kpi-card">
+          <span className="kpi-card-label">Rework rate</span>
+          <span className="kpi-card-value">
+            {dashKpis ? dashKpis.reworkRateLabel : "—"}
+          </span>
+          <p className="kpi-card-hint">Rework per products built</p>
+        </div>
+        <div className="kpi-card">
+          <span className="kpi-card-label">Avg. time to close / first rework</span>
+          <span className="kpi-card-value">
+            {dashKpis ? dashKpis.avgDaysToCloseLabel : "—"}
+          </span>
+          <p className="kpi-card-hint">Average days to first rework</p>
         </div>
       </section>
 
-      {/* Learnings */}
+      <QualityBriefingPanel />
+
+      <section className="pf-section">
+        <div className="pf-dashboard-grid">
+          <div className="card-surface panel chart-panel">
+            <h3>Weekly trend</h3>
+            <p className="chart-desc">
+              Weekly defect and claim volumes and production throughput. Field
+              claims are grouped by the week the claim was reported. Use the lag
+              charts below for time from build to claim.
+            </p>
+            <DefectTrendChart data={weeklyRollup} />
+          </div>
+          <div className="card-surface panel chart-panel">
+            <h3>Defect code Pareto</h3>
+            <p className="chart-desc">
+              Count per code with cumulative percentage (80% line).
+            </p>
+            <ParetoChart data={pareto} />
+          </div>
+        </div>
+      </section>
+
+      <section className="pf-section">
+        <div className="pf-dashboard-grid">
+          <div className="card-surface panel chart-panel">
+            <h3>Detected vs. occurred</h3>
+            <p className="chart-desc">
+              Where defects were caught vs. where they originated (detection bias
+              shows as a strong row for end-of-line gates).
+            </p>
+            <SectionHeatmap data={sectionHeatmap} />
+          </div>
+          <div className="card-surface panel chart-panel">
+            <h3>Severity by occurrence section</h3>
+            <p className="chart-desc">
+              Stacked severity at the line where the defect originated.
+            </p>
+            <SeverityChart
+              data={severityByOccurrence}
+              globalTotals={severityTotals}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="pf-section">
+        <div className="card-surface panel chart-panel chart-panel-wide pf-claim-lag-card">
+          <header className="pf-claim-lag-head">
+            <h3>Field claims and lag</h3>
+            <p className="chart-desc pf-claim-lag-intro">
+              Each dot is one claim: when it was built and how many days until
+              the field claim. The right panel summarizes claims by time from
+              build to claim.
+            </p>
+          </header>
+          <div className="pf-claim-lag-split">
+            <div className="pf-claim-lag-pane pf-claim-lag-pane-scatter">
+              <h4 className="pf-claim-lag-subtitle">Build date vs. lag</h4>
+              <ClaimLagScatter data={claimScatter} />
+            </div>
+            <div className="pf-claim-lag-pane pf-claim-lag-pane-buckets">
+              <h4 className="pf-claim-lag-subtitle">Lag distribution</h4>
+              <div className="pf-bar-chart pf-claim-lag-bar-chart chart-plot-region">
+                {claimLag.map((r) => (
+                  <div className="pf-bar-row pf-claim-lag-bar-row" key={r.bucket}>
+                    <span className="pf-bar-label">{r.bucket}</span>
+                    <div className="pf-bar-track">
+                      <div
+                        className="pf-bar-fill pf-bar-teal"
+                        style={{
+                          width: `${(r.cnt / claimLagMax) * 100}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="pf-bar-value">{r.cnt}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="pf-section">
+        <div className="card-surface panel chart-panel chart-panel-wide">
+          <h3>Cost of poor quality</h3>
+          <p className="chart-desc">
+            Estimated costs from internal defects, field claims, and shop-floor
+            rework.
+          </p>
+          <CostWaterfall data={costBreakdown} />
+        </div>
+      </section>
+
+      <section className="pf-section">
+        <div className="card-surface panel chart-panel-wide">
+          <h3>Batch defect rate ranking</h3>
+          <p className="chart-desc">
+            Products with defects / products exposed to each batch (BOM). High
+            rates flag supplier or material issues.
+          </p>
+          <div className="pf-table-wrap">
+            <table className="pf-table">
+              <thead>
+                <tr>
+                  <th>Batch</th>
+                  <th>Supplier</th>
+                  <th>Part</th>
+                  <th>Products</th>
+                  <th>Defective</th>
+                  <th>Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {batchTop.map((row) => (
+                  <tr key={row.batch_id}>
+                    <td>{row.batch_number}</td>
+                    <td>{row.supplier_name}</td>
+                    <td title={row.part_title}>
+                      {row.part_title.length > 40
+                        ? `${row.part_title.slice(0, 38)}…`
+                        : row.part_title}
+                    </td>
+                    <td>{row.total_products}</td>
+                    <td>{row.defective_products}</td>
+                    <td
+                      className={
+                        row.defect_rate > 0.15 ? "pf-cell-hot" : ""
+                      }
+                    >
+                      {(row.defect_rate * 100).toFixed(1)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {batchTop.length === 0 ? (
+              <p className="chart-empty" style={{ padding: 16 }}>
+                No batch-level defect data for this view.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
       <section className="pf-section">
         <div className="panel-header">
           <div>
-            <h2>Active learnings</h2>
-            <p>Automated signals from the four seeded root-cause stories.</p>
+            <h2>Initiative backlog</h2>
+            <p>Open, completed, and total corrective actions.</p>
           </div>
-          <Link href="/portfolio/learnings" className="secondary-button" style={{ textDecoration: "none" }}>
-            View all →
+          <Link
+            href="/portfolio/initiatives"
+            className="secondary-button"
+            style={{ textDecoration: "none" }}
+          >
+            Open initiatives →
           </Link>
         </div>
-        <div className="pf-learnings-grid">
-          {learnings.map((s) => (
-            <LearningCard key={s.id} signal={s} />
-          ))}
-          {learnings.length === 0 ? (
-            <p style={{ color: "var(--text-muted)" }}>No signals detected.</p>
-          ) : null}
-        </div>
-      </section>
-
-      {/* Charts grid */}
-      <section className="pf-section">
-        <div className="panel-header">
-          <div>
-            <h2>Monitors</h2>
-            <p>Pareto, trends, severity mix, claim lag, and initiative backlog.</p>
+        <div className="pf-backlog-grid">
+          <div className="metric-block">
+            <span>Open</span>
+            <strong>{backlog.open}</strong>
           </div>
-        </div>
-        <div className="pf-charts-grid">
-          {/* Pareto */}
-          <div className="card-surface panel">
-            <h3>Defect code Pareto</h3>
-            <div className="pf-bar-chart">
-              {pareto.slice(0, 10).map((r) => (
-                <div className="pf-bar-row" key={r.defect_code}>
-                  <span className="pf-bar-label">{r.defect_code}</span>
-                  <div className="pf-bar-track">
-                    <div
-                      className="pf-bar-fill"
-                      style={{ width: `${(r.cnt / (pareto[0]?.cnt || 1)) * 100}%` }}
-                    />
-                  </div>
-                  <span className="pf-bar-value">{r.cnt}</span>
-                  <span className="pf-bar-cum">{(r.cum_share * 100).toFixed(0)}%</span>
-                </div>
-              ))}
-            </div>
+          <div className="metric-block">
+            <span>Done / closed</span>
+            <strong>{backlog.done}</strong>
           </div>
-
-          {/* Defect trend */}
-          <div className="card-surface panel">
-            <h3>Defect rate by article (trend)</h3>
-            <TrendTable data={defectTrend} />
-          </div>
-
-          {/* Severity timeline */}
-          <div className="card-surface panel">
-            <h3>Severity distribution by week</h3>
-            <SeverityTable data={severityTimeline} />
-          </div>
-
-          {/* Claim lag */}
-          <div className="card-surface panel">
-            <h3>Field claim lag (days from build)</h3>
-            <div className="pf-bar-chart">
-              {claimLag.map((r) => (
-                <div className="pf-bar-row" key={r.bucket}>
-                  <span className="pf-bar-label">{r.bucket}</span>
-                  <div className="pf-bar-track">
-                    <div
-                      className="pf-bar-fill pf-bar-teal"
-                      style={{
-                        width: `${(r.cnt / Math.max(...claimLag.map((x) => x.cnt), 1)) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  <span className="pf-bar-value">{r.cnt}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Initiative backlog */}
-          <div className="card-surface panel">
-            <h3>Initiative backlog</h3>
-            <div className="pf-backlog-grid">
-              <div className="metric-block">
-                <span>Open</span>
-                <strong>{backlog.open}</strong>
-              </div>
-              <div className="metric-block">
-                <span>Done / closed</span>
-                <strong>{backlog.done}</strong>
-              </div>
-              <div className="metric-block">
-                <span>Total</span>
-                <strong>{backlog.total}</strong>
-              </div>
-            </div>
+          <div className="metric-block">
+            <span>Total</span>
+            <strong>{backlog.total}</strong>
           </div>
         </div>
       </section>
     </main>
-  );
-}
-
-function KpiTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="metric-card">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function LearningCard({ signal }: { signal: LearningSignal }) {
-  const ringClass =
-    signal.severity === "critical" || signal.severity === "high"
-      ? "pf-learning-high"
-      : signal.severity === "medium"
-        ? "pf-learning-medium"
-        : "pf-learning-low";
-
-  return (
-    <Link
-      href={`/portfolio/learnings#${signal.id}`}
-      className={`card-surface panel pf-learning-card ${ringClass}`}
-      style={{ textDecoration: "none" }}
-    >
-      <div className="pf-learning-top">
-        <h4>{signal.title}</h4>
-        <span className={`badge badge-${signal.severity === "high" || signal.severity === "critical" ? "danger" : signal.severity === "medium" ? "warning" : "neutral"}`}>
-          {signal.severity}
-        </span>
-      </div>
-      <p className="pf-learning-story">{signal.story}</p>
-      <p className="pf-learning-why">{signal.why}</p>
-      <p className="pf-learning-evidence">
-        {signal.evidenceCount} evidence row(s)
-      </p>
-    </Link>
-  );
-}
-
-function TrendTable({ data }: { data: DefectTrendRow[] }) {
-  const weeks = Array.from(new Set(data.map((d) => d.week_start))).sort();
-  const articles = Array.from(new Set(data.map((d) => d.article_name)));
-  const last8 = weeks.slice(-8);
-
-  return (
-    <div className="pf-table-wrap">
-      <table className="pf-table">
-        <thead>
-          <tr>
-            <th>Article</th>
-            {last8.map((w) => (
-              <th key={w}>{w.slice(5, 10)}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {articles.map((art) => (
-            <tr key={art}>
-              <td>{art}</td>
-              {last8.map((w) => {
-                const row = data.find(
-                  (d) => d.article_name === art && d.week_start === w
-                );
-                const rate = row?.defect_rate;
-                return (
-                  <td key={w} className={rate && rate > 0.1 ? "pf-cell-hot" : ""}>
-                    {rate != null ? rate.toFixed(3) : "—"}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function SeverityTable({ data }: { data: SeverityWeekRow[] }) {
-  const weeks = Array.from(new Set(data.map((d) => d.week))).sort();
-  const sevs = ["critical", "high", "medium", "low"];
-  const last8 = weeks.slice(-8);
-
-  return (
-    <div className="pf-table-wrap">
-      <table className="pf-table">
-        <thead>
-          <tr>
-            <th>Severity</th>
-            {last8.map((w) => (
-              <th key={w}>{w.slice(5, 10)}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {sevs.map((sev) => (
-            <tr key={sev}>
-              <td className="capitalize">{sev}</td>
-              {last8.map((w) => {
-                const row = data.find((d) => d.week === w && d.severity === sev);
-                return <td key={w}>{row?.cnt ?? 0}</td>;
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 }
