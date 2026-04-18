@@ -55,7 +55,10 @@ export function Sidebar() {
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
-    return pathname.startsWith(href);
+    if (href === "/portfolio") {
+      return pathname === "/portfolio" || pathname === "/portfolio/";
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
   }
 
   return (

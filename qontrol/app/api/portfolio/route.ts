@@ -1,32 +1,79 @@
 import { NextResponse } from "next/server";
+
 import {
+  parseRangeFromSearchParams,
+  type UtcRange,
+} from "@/lib/date-range";
+import {
+  computeBomBatchRanking,
   computeClaimLag,
+  computeClaimScatter,
+  computeCostBreakdown,
   computeDefectTrend,
   computeKpis,
   computePareto,
+  computeSectionHeatmap,
+  computeSeverityByOccurrence,
   computeSeverityTimeline,
+  computeSeverityTotals,
+  computeWeeklyRollup,
   detectLearnings,
+  fetchBomParts,
   fetchClaims,
   fetchDefects,
   fetchInitiatives,
+  fetchProductIds,
   fetchQualitySummary,
+  fetchRework,
+  type BomPartRow,
+  type ReworkRow,
 } from "@/lib/portfolio-data";
 
-export async function GET() {
+async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   try {
-    const [defects, claims, initiatives, summary] = await Promise.all([
-      fetchDefects(500),
-      fetchClaims(200),
-      fetchInitiatives(),
-      fetchQualitySummary(),
-    ]);
+    return await fn();
+  } catch {
+    return fallback;
+  }
+}
 
-    const kpis = computeKpis(defects, claims, initiatives, summary);
+export async function GET(request: Request) {
+  try {
+    const parsed = parseRangeFromSearchParams(
+      new URL(request.url).searchParams,
+    );
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    const range: UtcRange | null = parsed.range;
+
+    const [defects, claims, initiatives, summary, bom, rework, productIds] =
+      await Promise.all([
+        fetchDefects(2000, range),
+        fetchClaims(50_000, range),
+        fetchInitiatives(range),
+        fetchQualitySummary(range),
+        safe(() => fetchBomParts(8000), [] as BomPartRow[]),
+        safe(() => fetchRework(10_000, range), [] as ReworkRow[]),
+        safe(() => fetchProductIds(), [] as string[]),
+      ]);
+
+    const kpis = computeKpis(defects, claims, initiatives, summary, {
+      totalProductCount:
+        productIds.length > 0 ? productIds.length : undefined,
+    });
+    const severityTotals = computeSeverityTotals(defects);
     const pareto = computePareto(defects);
     const severityTimeline = computeSeverityTimeline(defects);
     const defectTrend = computeDefectTrend(summary);
+    const weeklyRollup = computeWeeklyRollup(summary, claims);
     const claimLag = computeClaimLag(claims);
     const learnings = detectLearnings(defects, claims);
+    const sectionHeatmap = computeSectionHeatmap(defects);
+    const severityByOccurrence = computeSeverityByOccurrence(defects);
+    const costBreakdown = computeCostBreakdown(defects, claims, rework);
+    const claimScatter = computeClaimScatter(claims);
+    const bomBatchRanking = computeBomBatchRanking(bom, defects);
 
     const backlog = {
       open: initiatives.filter(
@@ -43,9 +90,19 @@ export async function GET() {
       pareto,
       severityTimeline,
       defectTrend,
+      weeklyRollup,
       claimLag,
       learnings,
       backlog,
+      sectionHeatmap,
+      severityByOccurrence,
+      severityTotals,
+      costBreakdown,
+      claimScatter,
+      bomBatchRanking,
+      range: range
+        ? { from: range.from, to: range.to }
+        : null,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
