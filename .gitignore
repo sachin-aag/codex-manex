@@ -7,3 +7,20 @@ data-generation/.venv/
 data-generation/__pycache__/
 data-generation/*.pyc
 .DS_Store
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.venv/
+venv/
+env/
+pip-wheel-metadata/
+
+# Notebook artifacts
+.ipynb_checkpoints/
+
+# Tool/runtime artifacts
+.python_packages/
+outputs/
