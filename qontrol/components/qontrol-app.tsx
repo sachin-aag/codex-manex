@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   clarityLabel,
@@ -12,6 +12,8 @@ import {
 } from "@/lib/qontrol-data";
 
 type CaseMap = Record<string, QontrolCase>;
+const MIN_BOARD_WIDTH_PERCENT = 35;
+const MAX_BOARD_WIDTH_PERCENT = 72;
 
 const boardColumns: { key: CaseState; label: string }[] = [
   { key: "unassigned", label: "Unassigned" },
@@ -26,9 +28,11 @@ const boardColumns: { key: CaseState; label: string }[] = [
 export function QontrolApp() {
   const [cases, setCases] = useState<CaseMap>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [boardWidthPercent, setBoardWidthPercent] = useState(52);
   const [isLoading, setIsLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const workspaceRef = useRef<HTMLElement>(null);
 
   const orderedCases = useMemo(() => {
     return Object.values(cases).sort((a, b) => {
@@ -44,8 +48,13 @@ export function QontrolApp() {
       );
     });
   }, [cases]);
-  const selectedCase =
-    (selectedId ? cases[selectedId] : undefined) ?? orderedCases[0];
+  const selectedCase = selectedId ? cases[selectedId] : undefined;
+  const showDetailPane = selectedId !== null;
+  const workspaceStyle = showDetailPane
+    ? ({
+        "--board-width": `${boardWidthPercent}%`,
+      } as CSSProperties)
+    : undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -64,9 +73,6 @@ export function QontrolApp() {
           payload.cases.map((item) => [item.id, item]),
         );
         setCases(nextMap);
-        if (!selectedId && payload.cases.length > 0) {
-          setSelectedId(payload.cases[0].id);
-        }
       } catch (error) {
         if (cancelled) return;
         const message =
@@ -126,6 +132,15 @@ export function QontrolApp() {
 
   function handleSendEmail() {
     if (!selectedCase) return;
+    const draft = selectedCase.emailDraft;
+    const ticketUrl = `https://codexmanexqontrol.vercel.app/?case=${encodeURIComponent(selectedCase.id)}`;
+    const bodyWithLink = `${draft.body}\n\nTicket: ${ticketUrl}`;
+    const mailto =
+      `mailto:${draft.to.join(",")}` +
+      `?cc=${encodeURIComponent(draft.cc.join(","))}` +
+      `&subject=${encodeURIComponent(draft.subject)}` +
+      `&body=${encodeURIComponent(bodyWithLink)}`;
+    window.open(mailto, "_blank");
     updateCase(selectedCase.id, (current) => ({
       ...current,
       timeline: [
@@ -134,6 +149,89 @@ export function QontrolApp() {
           at: new Date().toISOString(),
           title: "Assignment email sent",
           description: `Team notification sent to ${current.emailDraft.to.join(", ")}.`,
+          source: "qm",
+        },
+        ...current.timeline,
+      ],
+    }));
+  }
+
+  function handleSetupCall() {
+    if (!selectedCase) return;
+    const start = new Date();
+    start.setDate(start.getDate() + 1);
+    start.setHours(10, 0, 0, 0);
+    const end = new Date(start);
+    end.setMinutes(end.getMinutes() + 30);
+
+    const fmt = (d: Date) =>
+      d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+
+    const attendees = [
+      ...selectedCase.emailDraft.to,
+      ...selectedCase.emailDraft.cc,
+    ];
+
+    const ticketUrl = `https://codexmanexqontrol.vercel.app/?case=${encodeURIComponent(selectedCase.id)}`;
+
+    const ics = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Qontrol//EN",
+      "BEGIN:VEVENT",
+      `DTSTART:${fmt(start)}`,
+      `DTEND:${fmt(end)}`,
+      `SUMMARY:[${selectedCase.severity.toUpperCase()}] ${selectedCase.id} — Review call`,
+      `DESCRIPTION:Case: ${selectedCase.id}\\nSeverity: ${selectedCase.severity.toUpperCase()}\\nTitle: ${selectedCase.title}\\n\\n${selectedCase.summary}\\n\\nTicket: ${ticketUrl}`,
+      ...attendees.map((email) => `ATTENDEE;RSVP=TRUE:mailto:${email}`),
+      `ORGANIZER:mailto:qm@manex.internal`,
+      `STATUS:CONFIRMED`,
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n");
+
+    const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${selectedCase.id}-review-call.ics`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    updateCase(selectedCase.id, (current) => ({
+      ...current,
+      timeline: [
+        {
+          id: crypto.randomUUID(),
+          at: new Date().toISOString(),
+          title: "Review call scheduled",
+          description: `Calendar invite created for ${start.toLocaleDateString()} 10:00 AM.`,
+          source: "qm",
+        },
+        ...current.timeline,
+      ],
+    }));
+  }
+
+  function handleEscalate() {
+    if (!selectedCase) return;
+    const draft = selectedCase.escalationEmailDraft;
+    const ticketUrl = `https://codexmanexqontrol.vercel.app/?case=${encodeURIComponent(selectedCase.id)}`;
+    const bodyWithLink = `${draft.body}\n\nTicket: ${ticketUrl}`;
+    const mailto =
+      `mailto:${draft.to.join(",")}` +
+      `?cc=${encodeURIComponent(draft.cc.join(","))}` +
+      `&subject=${encodeURIComponent(draft.subject)}` +
+      `&body=${encodeURIComponent(bodyWithLink)}`;
+    window.open(mailto, "_blank");
+    updateCase(selectedCase.id, (current) => ({
+      ...current,
+      timeline: [
+        {
+          id: crypto.randomUUID(),
+          at: new Date().toISOString(),
+          title: "Escalated to manager",
+          description: `Escalation sent to ${current.escalationEmailDraft.to.join(", ")}.`,
           source: "qm",
         },
         ...current.timeline,
@@ -261,11 +359,60 @@ export function QontrolApp() {
     }));
   }
 
+  function handleTicketSelect(caseId: string) {
+    setSelectedId(caseId);
+    setActionError(null);
+  }
+
+  function handleCloseDetails() {
+    setSelectedId(null);
+    setActionError(null);
+  }
+
+  function handleResizerPointerDown(event: React.PointerEvent<HTMLButtonElement>) {
+    if (!showDetailPane) return;
+    const workspace = workspaceRef.current;
+    if (!workspace) return;
+
+    event.preventDefault();
+    const rect = workspace.getBoundingClientRect();
+    const updateFromPointer = (clientX: number) => {
+      const nextPercent = ((clientX - rect.left) / rect.width) * 100;
+      setBoardWidthPercent(
+        clamp(nextPercent, MIN_BOARD_WIDTH_PERCENT, MAX_BOARD_WIDTH_PERCENT),
+      );
+    };
+
+    const handlePointerMove = (pointerEvent: PointerEvent) => {
+      updateFromPointer(pointerEvent.clientX);
+    };
+
+    const handlePointerUp = () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+  }
+
+  function handleResizerKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const delta = event.key === "ArrowLeft" ? -3 : 3;
+    setBoardWidthPercent((current) =>
+      clamp(current + delta, MIN_BOARD_WIDTH_PERCENT, MAX_BOARD_WIDTH_PERCENT),
+    );
+  }
+
   return (
     <main className="page-shell">
       <section className="hero-strip">
         <div>
-          <p className="eyebrow">Qontrol</p>
+          <p className="eyebrow">
+            <span className="eyebrow-initial">Q</span>
+            <span className="eyebrow-rest">ontrol</span>
+          </p>
           <h1>Quality operations board</h1>
           <p className="hero-copy">
             Triage, route, follow up, and verify every case from one QM control
@@ -285,7 +432,11 @@ export function QontrolApp() {
         </div>
       </section>
 
-      <section className="workspace-grid">
+      <section
+        className={`workspace-grid ${showDetailPane ? "with-detail" : "board-only"}`}
+        ref={workspaceRef}
+        style={workspaceStyle}
+      >
         <div className="board-shell">
           <div className="board-header">
             <div>
@@ -293,6 +444,10 @@ export function QontrolApp() {
               <p>Cases are sorted by follow-up urgency first.</p>
             </div>
           </div>
+          {isLoading ? <p className="board-status">Loading cases...</p> : null}
+          {!isLoading && orderedCases.length === 0 ? (
+            <p className="board-status">No cases found. Check API credentials and available data.</p>
+          ) : null}
           <div className="board-grid">
             {boardColumns.map((column) => {
               const columnCases = orderedCases.filter(
@@ -312,18 +467,31 @@ export function QontrolApp() {
                       <button
                         className={`ticket-card ${selectedId === item.id ? "selected" : ""}`}
                         key={item.id}
-                        onClick={() => setSelectedId(item.id)}
+                        onClick={() => handleTicketSelect(item.id)}
                         type="button"
                       >
+                        {isFollowUpOverdue(item) || isFollowUpSoon(item) ? (
+                          <span
+                            aria-label={
+                              isFollowUpOverdue(item)
+                                ? "Needs attention"
+                                : "Needs attention soon"
+                            }
+                            className={`attention-indicator ${
+                              isFollowUpOverdue(item) ? "overdue" : "soon"
+                            }`}
+                            role="img"
+                            title={
+                              isFollowUpOverdue(item)
+                                ? "Needs attention"
+                                : "Needs attention soon"
+                            }
+                          >
+                            !
+                          </span>
+                        ) : null}
                         <div className="ticket-topline">
                           <span className="ticket-title">{item.title}</span>
-                          <span className={`follow-chip ${followStatusClass(item)}`}>
-                            {isFollowUpOverdue(item)
-                              ? "Follow-up now"
-                              : isFollowUpSoon(item)
-                                ? "Due soon"
-                                : "On track"}
-                          </span>
                         </div>
                         <div className="ticket-badges">
                           <Badge tone="neutral">{item.sourceType}</Badge>
@@ -354,67 +522,67 @@ export function QontrolApp() {
           </div>
         </div>
 
-        <div className="detail-shell">
-          {isLoading ? (
-            <section className="detail-header card-surface">
-              <p>Loading cases...</p>
-            </section>
-          ) : null}
-          {!isLoading && !selectedCase ? (
-            <section className="detail-header card-surface">
-              <p>No cases found. Check API credentials and available data.</p>
-            </section>
-          ) : null}
-          {selectedCase ? (
+        {showDetailPane ? (
+          <>
+            <button
+              aria-label="Resize board and ticket details"
+              aria-valuemax={MAX_BOARD_WIDTH_PERCENT}
+              aria-valuemin={MIN_BOARD_WIDTH_PERCENT}
+              aria-valuenow={Math.round(boardWidthPercent)}
+              className="workspace-resizer"
+              onKeyDown={handleResizerKeyDown}
+              onPointerDown={handleResizerPointerDown}
+              type="button"
+            />
+            <div className="detail-shell">
+              {selectedCase ? (
             <>
           <section className="detail-header card-surface">
-            <div>
-              <div className="detail-title-row">
-                <p className="detail-id">{selectedCase.id}</p>
-                <div className="ticket-badges">
-                  <Badge tone={clarityTone(selectedCase.clarity)}>
-                    {clarityLabel[selectedCase.clarity]}
-                  </Badge>
-                  <Badge tone="story">{storyLabel[selectedCase.story]}</Badge>
-                  <Badge tone={severityTone(selectedCase.severity)}>
-                    {selectedCase.severity}
-                  </Badge>
-                </div>
+            <div className="detail-header-top">
+              <button
+                aria-label="Close details"
+                className="icon-close-button detail-close-inline"
+                onClick={handleCloseDetails}
+                type="button"
+              >
+                ×
+              </button>
+              <p className="detail-id">{selectedCase.id}</p>
+              <div className="header-actions">
+                {selectedCase.state === "unassigned" && selectedCase.clarity !== "warning" ? (
+                  <button
+                    className="primary-button"
+                    disabled={isMutating}
+                    onClick={handleApproveAndRoute}
+                    type="button"
+                  >
+                    Approve and route
+                  </button>
+                ) : null}
+                {selectedCase.state === "returned_to_qm_for_verification" ? (
+                  <button className="secondary-button" onClick={handleStartVerification} type="button">
+                    Start QM verification
+                  </button>
+                ) : null}
+                {selectedCase.state === "returned_to_qm_for_verification" ? (
+                  <button className="ghost-button" onClick={handleReroute} type="button">
+                    Reroute
+                  </button>
+                ) : null}
               </div>
+            </div>
+            <div className="detail-badge-row">
+              <Badge tone={clarityTone(selectedCase.clarity)}>
+                {clarityLabel[selectedCase.clarity]}
+              </Badge>
+              <Badge tone="story">{storyLabel[selectedCase.story]}</Badge>
+              <span className={`severity-badge severity-${severityTone(selectedCase.severity)}`}>
+                {selectedCase.severity.charAt(0).toUpperCase() + selectedCase.severity.slice(1)}
+              </span>
+            </div>
+            <div className="detail-header-body">
               <h2>{selectedCase.title}</h2>
               <p className="detail-summary">{selectedCase.summary}</p>
-            </div>
-            <div className="header-actions">
-              {selectedCase.state === "unassigned" && selectedCase.clarity !== "warning" ? (
-                <button
-                  className="primary-button"
-                  disabled={isMutating}
-                  onClick={handleApproveAndRoute}
-                  type="button"
-                >
-                  Approve and route
-                </button>
-              ) : null}
-              {selectedCase.state === "returned_to_qm_for_verification" ? (
-                <button className="secondary-button" onClick={handleStartVerification} type="button">
-                  Start QM verification
-                </button>
-              ) : null}
-              {selectedCase.state !== "closed" ? (
-                <button
-                  className="ghost-button"
-                  disabled={isMutating}
-                  onClick={handleCloseCase}
-                  type="button"
-                >
-                  Close case
-                </button>
-              ) : null}
-              {selectedCase.state === "returned_to_qm_for_verification" ? (
-                <button className="ghost-button" onClick={handleReroute} type="button">
-                  Reroute
-                </button>
-              ) : null}
             </div>
           </section>
 
@@ -427,8 +595,6 @@ export function QontrolApp() {
               ) : null}
               <Panel title="Operational overview" description="Top priority signals for QM right now.">
                 <div className="overview-grid">
-                  <MetricBlock label="Assigned to" value={selectedCase.assignee} />
-                  <MetricBlock label="Owner team" value={selectedCase.ownerTeam} />
                   <MetricBlock label="Cost impact" value={formatCurrency(selectedCase.costUsd)} />
                   <MetricBlock label="Last update" value={timeSince(selectedCase.lastUpdateAt)} />
                   <MetricBlock
@@ -499,6 +665,19 @@ export function QontrolApp() {
                 </div>
               </Panel>
 
+              {selectedCase.imageUrl ? (
+                <details className="email-collapse">
+                  <summary className="email-collapse-toggle">Defect image</summary>
+                  <div className="email-collapse-content">
+                    <img
+                      alt={`Image for ${selectedCase.id}`}
+                      className="defect-image"
+                      src={`/api/images?path=${encodeURIComponent(selectedCase.imageUrl)}`}
+                    />
+                  </div>
+                </details>
+              ) : null}
+
               <Panel title="Timeline" description="Cross-system history and learnings trail.">
                 <div className="timeline">
                   {selectedCase.timeline.map((event) => (
@@ -536,27 +715,30 @@ export function QontrolApp() {
                   <button className="secondary-button" onClick={handleSendEmail} type="button">
                     Send email
                   </button>
-                  <button className="secondary-button" type="button">
+                  <button className="secondary-button" onClick={handleSetupCall} type="button">
                     Set up call
                   </button>
-                  <button className="ghost-button" type="button">
+                  <button className="ghost-button" onClick={handleEscalate} type="button">
                     Escalate to manager
                   </button>
                 </div>
               </Panel>
 
-              <Panel title="Assignment email" description="Editable draft before handoff.">
-                <div className="email-meta">
-                  <p><strong>To:</strong> {selectedCase.emailDraft.to.join(", ")}</p>
-                  <p><strong>CC:</strong> {selectedCase.emailDraft.cc.join(", ")}</p>
-                  <p><strong>Subject:</strong> {selectedCase.emailDraft.subject}</p>
+              <details className="email-collapse">
+                <summary className="email-collapse-toggle">Assignment email draft</summary>
+                <div className="email-collapse-content">
+                  <div className="email-meta">
+                    <p><strong>To:</strong> {selectedCase.emailDraft.to.join(", ")}</p>
+                    <p><strong>CC:</strong> {selectedCase.emailDraft.cc.join(", ")}</p>
+                    <p><strong>Subject:</strong> {selectedCase.emailDraft.subject}</p>
+                  </div>
+                  <textarea
+                    className="email-editor"
+                    onChange={(event) => handleEmailChange(event.target.value)}
+                    value={selectedCase.emailDraft.body}
+                  />
                 </div>
-                <textarea
-                  className="email-editor"
-                  onChange={(event) => handleEmailChange(event.target.value)}
-                  value={selectedCase.emailDraft.body}
-                />
-              </Panel>
+              </details>
 
               <Panel title="External ticket" description="Mocked handoff with visible sync back into Qontrol.">
                 <div className="stack-list">
@@ -602,12 +784,44 @@ export function QontrolApp() {
               </Panel>
             </div>
           </section>
-            </>
+          {selectedCase.state !== "closed" ? (
+            <section className="case-footer-actions card-surface">
+              <button
+                className="danger-button"
+                disabled={isMutating}
+                onClick={handleCloseCase}
+                type="button"
+              >
+                Close case
+              </button>
+            </section>
           ) : null}
-        </div>
+            </>
+              ) : (
+                <section className="detail-header card-surface">
+                  <div className="panel-headerless-row">
+                    <p>This ticket is no longer available.</p>
+                    <button
+                      aria-label="Close details"
+                      className="icon-close-button"
+                      onClick={handleCloseDetails}
+                      type="button"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </section>
+              )}
+            </div>
+          </>
+        ) : null}
       </section>
     </main>
   );
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function Panel({
