@@ -119,11 +119,6 @@ const deptNav: NavItem[] = [
   },
 ];
 
-function deptFromPath(pathname: string): { label: string; accent: string } {
-  if (pathname.startsWith("/rd")) return { label: "R&D · Engineering view", accent: "rd" };
-  return { label: "QE · Management view", accent: "qm" };
-}
-
 type SidebarProps = {
   collapsed: boolean;
   onToggle: () => void;
@@ -140,8 +135,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     }
     return pathname === href || pathname.startsWith(`${href}/`);
   }
-
-  const footer = deptFromPath(pathname);
 
   return (
     <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
@@ -227,9 +220,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         )}
       </nav>
 
-      <div className="sidebar-footer">
-        <div className={`sidebar-env-badge env-${footer.accent}`}>{footer.label}</div>
-      </div>
     </aside>
   );
 }
