@@ -526,6 +526,165 @@ button {
   padding: 16px 18px;
 }
 
+.closed-tickets-modal {
+  width: min(640px, 100%);
+}
+
+.close-case-modal {
+  width: min(620px, 100%);
+}
+
+.close-dialog-card {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.close-dialog-copy p,
+.close-dialog-comment-preview {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.close-dialog-comment-preview {
+  margin: 0;
+}
+
+.close-comment-editor {
+  min-height: 140px;
+  margin-top: 0;
+}
+
+.closed-ticket-list {
+  display: grid;
+  gap: 12px;
+}
+
+.closed-ticket-row {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  padding: 16px 18px;
+  text-align: left;
+}
+
+.closed-ticket-row:hover {
+  border-color: color-mix(in srgb, var(--brand) 24%, var(--border));
+  background: color-mix(in srgb, var(--surface-muted) 84%, white);
+}
+
+.closed-ticket-row-header,
+.closed-ticket-row-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.closed-ticket-row-header span,
+.closed-ticket-row-meta {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.closed-ticket-row p {
+  margin: 0;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.closed-ticket-row-meta {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px 14px;
+}
+
+.routing-success-card {
+  display: grid;
+  gap: 14px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--brand) 18%, white);
+  background: var(--brand-soft);
+  padding: 18px;
+}
+
+.routing-success-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.routing-success-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.routing-success-copy,
+.routing-success-meta {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.routing-success-meta {
+  margin: 0;
+}
+
+.routing-loading-indicator,
+.routing-button-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.routing-loading-indicator {
+  margin-bottom: 0;
+}
+
+.routing-loading-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--brand-strong);
+}
+
+.routing-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--brand) 18%, white);
+  border-top-color: var(--brand);
+  animation: routing-spinner-rotate 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.routing-spinner-inverse {
+  border-color: color-mix(in srgb, white 28%, transparent);
+  border-top-color: white;
+}
+
+@keyframes routing-spinner-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .routing-chip-row {
   display: flex;
   flex-wrap: wrap;
@@ -1566,22 +1725,59 @@ button {
 
 .timeline {
   display: flex;
-  flex-direction: column;
-  gap: 14px;
+  gap: 18px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 2px 10px;
+  scrollbar-width: thin;
 }
 
 .timeline-item {
+  position: relative;
   display: grid;
-  grid-template-columns: 18px 1fr;
+  grid-template-rows: auto 1fr;
   gap: 12px;
+  min-width: 260px;
+  max-width: 320px;
+  flex: 0 0 260px;
+}
+
+.timeline-item::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 16px;
+  width: calc(100% + 2px);
+  height: 2px;
+  background: var(--border);
+}
+
+.timeline-item:last-child::after {
+  display: none;
 }
 
 .timeline-dot {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 999px;
-  margin-top: 6px;
+  margin-top: 0;
   background: var(--border-strong);
+  position: relative;
+  z-index: 1;
+}
+
+.timeline-item > div:last-child {
+  border: 1px solid var(--border);
+  background: var(--surface-subtle);
+  border-radius: 16px;
+  padding: 14px;
+  min-height: 100%;
+}
+
+.timeline .timeline-meta {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
 }
 
 .timeline-dot.qm {

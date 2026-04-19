@@ -23,7 +23,10 @@ import {
   listGitHubIssueComments,
   updateGitHubIssue,
 } from "@/lib/github";
-import { buildGitHubDiscussionSummary } from "@/lib/github-discussion-summary";
+import {
+  buildGitHubDiscussionSummary,
+  extractGitHubDiscussionTakeaways,
+} from "@/lib/github-discussion-summary";
 import { postgrestRequest } from "@/lib/db/postgrest";
 import {
   computeClaimLag,
@@ -1697,6 +1700,9 @@ function decorateCase(params: {
       tests: params.tests,
     });
   }
+  const githubDiscussionLearnings = extractGitHubDiscussionTakeaways(
+    params.item.external?.discussionSummary,
+  );
 
   return {
     ...params.item,
@@ -1709,6 +1715,7 @@ function decorateCase(params: {
         state: params.item.state,
       }),
     },
+    learnings: dedupeStrings([...params.item.learnings, ...githubDiscussionLearnings]),
     similarTickets: buildSimilarTickets(params.item, relatedCases),
   };
 }
@@ -2180,10 +2187,12 @@ export async function submitRdDecision(caseId: string, payload: RdDecisionPayloa
   return getCaseById(caseId);
 }
 
-export async function closeCase(caseId: string) {
+export async function closeCase(caseId: string, options?: { comment?: string }) {
   const current = await getCaseById(caseId);
+  const comment = options?.comment?.trim() ?? "";
   const defectId =
     caseId.startsWith("DEF-") ? caseId : current.evidenceTrail.find((entry) => entry.startsWith("Mapped defect: "))?.split(": ")[1] ?? null;
+  const closureComment = comment ? ` Comment: ${comment}` : "";
 
   await insertProductAction({
     product_id: current.productId,
@@ -2192,7 +2201,7 @@ export async function closeCase(caseId: string) {
     status: "closed",
     user_id: DEFAULT_USER,
     section_id: null,
-    comments: `Qontrol closed ${caseId}.`,
+    comments: `Qontrol closed ${caseId}.${closureComment}`,
     defect_id: defectId && defectId.startsWith("DEF-") ? defectId : null,
   });
 
@@ -2200,7 +2209,7 @@ export async function closeCase(caseId: string) {
     await insertRework({
       defect_id: defectId,
       product_id: current.productId,
-      action_text: `Closed via Qontrol workflow for ${caseId}.`,
+      action_text: `Closed via Qontrol workflow for ${caseId}.${closureComment}`,
       reported_part_number: current.partNumber,
       user_id: DEFAULT_USER,
       cost: 0,
@@ -2216,7 +2225,7 @@ export async function closeCase(caseId: string) {
     assignee: current.assignee,
     ownerTeam: current.ownerTeam,
     qmOwner: current.qmOwner,
-    note: "Case closed and write-back captured.",
+    note: comment ? `Case closed. ${comment}` : "Case closed and write-back captured.",
     actor: "qm",
     externalTicket: current.external ?? null,
   });

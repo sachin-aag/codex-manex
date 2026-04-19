@@ -201,6 +201,9 @@ function buildLaggingTeam(rows: CeoReportTeamPortfolioRow[]): CeoReportLaggingTe
       headline: "No open-ticket concentration to flag this week.",
       reason: "The current live queue is too small to call out a materially behind team.",
       score: 0,
+      totalOpen: 0,
+      highSeverityOpen: 0,
+      overdueOpen: 0,
     };
   }
 
@@ -216,6 +219,9 @@ function buildLaggingTeam(rows: CeoReportTeamPortfolioRow[]): CeoReportLaggingTe
       reason:
         "Open-ticket load is distributed closely enough across RD, MO, and SC that no executive escalation is warranted.",
       score: leader.score,
+      totalOpen: leader.total,
+      highSeverityOpen: leader.high,
+      overdueOpen: leader.overdue,
     };
   }
 
@@ -225,6 +231,9 @@ function buildLaggingTeam(rows: CeoReportTeamPortfolioRow[]): CeoReportLaggingTe
     headline: `${responsibleTeamLabel[leader.team]} is carrying the heaviest backlog.`,
     reason: `${responsibleTeamLabel[leader.team]} currently owns ${leader.total} open tickets, including ${leader.high} high-severity items and ${leader.overdue} overdue follow-ups. That queue scores ${Math.round(leader.score - peerMedian)} points above the peer median on the executive backlog index.`,
     score: leader.score,
+    totalOpen: leader.total,
+    highSeverityOpen: leader.high,
+    overdueOpen: leader.overdue,
   };
 }
 
@@ -298,8 +307,10 @@ function buildNarrativeCards(params: {
     {
       title: laggingTeam.isFlagged ? "Backlog concentration needs attention" : "Backlog remains balanced",
       body: laggingTeam.reason,
-      metricLabel: "High severity open",
-      metricValue: String(highSeverityCount),
+      metricLabel: laggingTeam.isFlagged ? "High severity on team" : "High severity open",
+      metricValue: String(
+        laggingTeam.isFlagged ? laggingTeam.highSeverityOpen : highSeverityCount,
+      ),
       tone: laggingTeam.isFlagged ? "watch" : "neutral",
     },
   ];

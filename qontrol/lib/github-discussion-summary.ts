@@ -24,6 +24,14 @@ function normalizeWhitespace(value: string | null | undefined) {
   return value?.replace(/\s+/g, " ").trim() ?? "";
 }
 
+export function extractGitHubDiscussionTakeaways(summary: string | null | undefined) {
+  if (!summary) return [];
+  return summary
+    .split(/\r?\n/)
+    .map((line) => normalizeWhitespace(line))
+    .filter(Boolean);
+}
+
 function limitText(value: string, maxChars: number) {
   if (value.length <= maxChars) return value;
   return `${value.slice(0, maxChars - 1).trimEnd()}...`;
@@ -90,8 +98,8 @@ function buildFallbackSummary(comments: GitHubIssueComment[]) {
 
   const [latest, previous] = meaningful;
   const lineOne = latest.author
-    ? `${latest.author} reports: ${limitText(latest.body, 90)}`
-    : `Latest update: ${limitText(latest.body, 96)}`;
+    ? `${latest.author}: ${limitText(latest.body, 96)}`
+    : `Latest engineering update: ${limitText(latest.body, 92)}`;
   const lineTwo = previous
     ? previous.author
       ? `Recent follow-up from ${previous.author}: ${limitText(previous.body, 74)}`
@@ -149,7 +157,7 @@ export async function buildGitHubDiscussionSummary(params: {
         {
           role: "system",
           content:
-            "You summarize GitHub engineering discussion for a quality manager. Output exactly two plain-text lines, no bullets or markdown. Keep it concise, concrete, and grounded only in the supplied issue discussion. Mention the latest status, blocker, decision, or next step when present.",
+            "You summarize GitHub engineering discussion for a quality manager. Output exactly two plain-text lines, no bullets or markdown. Keep it concise, concrete, and grounded only in the supplied issue discussion. Line 1 must capture the current engineering takeaway, such as difficulty, confidence, ETA, or delivery status when present. Prefer phrasing like 'Easy fix, team estimates 1 day.' when the discussion supports it. Line 2 must capture the blocker, decision, owner update, or next step when present. Do not hedge with generic filler and do not invent facts.",
         },
         {
           role: "user",

@@ -55,6 +55,9 @@ function addText(slide, text, position, options = {}) {
   shape.text.alignment = options.alignment ?? "left";
   shape.text.verticalAlignment = options.verticalAlignment ?? "middle";
   shape.text.insets = options.insets ?? { left: 8, right: 8, top: 4, bottom: 4 };
+  if (options.autoFit) {
+    shape.text.autoFit = options.autoFit;
+  }
   return shape;
 }
 
@@ -585,7 +588,9 @@ function buildSlide4(presentation, data) {
   );
 
   data.narrativeCards.forEach((card, index) => {
-    const top = 214 + index * 134;
+    const cardHeight = 126;
+    const cardGap = 12;
+    const top = 208 + index * (cardHeight + cardGap);
     const accent =
       card.tone === "positive"
         ? COLORS.success
@@ -600,32 +605,44 @@ function buildSlide4(presentation, data) {
           : COLORS.brandSoft;
     addShape(slide, {
       geometry: "roundRect",
-      position: { left: 786, top, width: 410, height: 114 },
+      position: { left: 786, top, width: 410, height: cardHeight },
       fill: accentSoft,
       line: { width: 0, fill: accentSoft },
     });
-    addText(slide, card.title, { left: 806, top: top + 12, width: 250, height: 26 }, {
-      fontSize: 16,
+    addText(slide, card.title, { left: 806, top: top + 12, width: 232, height: 40 }, {
+      fontSize: 17,
       bold: true,
       typeface: FONT.title,
       color: accent,
+      verticalAlignment: "top",
+      insets: { left: 0, right: 6, top: 0, bottom: 0 },
+      autoFit: "shrinkText",
     });
-    addText(slide, card.metricValue, { left: 1050, top: top + 10, width: 120, height: 34 }, {
-      fontSize: 24,
+    addText(slide, card.metricValue, { left: 1080, top: top + 10, width: 90, height: 34 }, {
+      fontSize: 22,
       bold: true,
       alignment: "right",
+      verticalAlignment: "top",
       typeface: FONT.title,
       color: COLORS.text,
+      insets: { left: 0, right: 0, top: 0, bottom: 0 },
+      autoFit: "shrinkText",
     });
-    addText(slide, card.metricLabel, { left: 1040, top: top + 44, width: 130, height: 18 }, {
-      fontSize: 11,
+    addText(slide, card.metricLabel, { left: 1062, top: top + 40, width: 108, height: 28 }, {
+      fontSize: 10,
       color: COLORS.textMuted,
       alignment: "right",
+      verticalAlignment: "top",
       bold: true,
+      insets: { left: 4, right: 0, top: 0, bottom: 0 },
+      autoFit: "shrinkText",
     });
-    addText(slide, card.body, { left: 806, top: top + 50, width: 350, height: 48 }, {
-      fontSize: 13,
+    addText(slide, card.body, { left: 806, top: top + 60, width: 252, height: 52 }, {
+      fontSize: 12,
       color: COLORS.text,
+      verticalAlignment: "top",
+      insets: { left: 0, right: 12, top: 0, bottom: 0 },
+      autoFit: "shrinkText",
     });
   });
 }

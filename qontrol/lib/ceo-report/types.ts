@@ -33,6 +33,9 @@ export type CeoReportLaggingTeam = {
   headline: string;
   reason: string;
   score: number;
+  totalOpen: number;
+  highSeverityOpen: number;
+  overdueOpen: number;
 };
 
 export type CeoReportTrendPoint = {

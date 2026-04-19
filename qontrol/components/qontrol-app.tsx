@@ -28,6 +28,14 @@ type RouteDialogState = {
   sendEmail: boolean;
   relatedCaseIds: string[];
   selectedCaseIds: string[];
+  completed?: boolean;
+  githubUrl?: string;
+  githubLabel?: string;
+};
+
+type CloseDialogState = {
+  comment: string;
+  completed?: boolean;
 };
 
 type AssignRouteResponse = {
@@ -88,6 +96,8 @@ export function QontrolApp() {
   const [isMutating, setIsMutating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [routeDialog, setRouteDialog] = useState<RouteDialogState | null>(null);
+  const [closeDialog, setCloseDialog] = useState<CloseDialogState | null>(null);
+  const [showClosedTicketsDialog, setShowClosedTicketsDialog] = useState(false);
 
   const allCases = useMemo(() => Object.values(cases), [cases]);
   const topDefectTypes = useMemo(() => getTopDefectTypes(allCases), [allCases]);
@@ -166,6 +176,17 @@ export function QontrolApp() {
   const activeFilterCount = countActiveFilters(filters);
   const hasVisibleCases = orderedCases.length > 0;
   const showDetailPane = selectedId !== null;
+  const recentClosedCases = useMemo(
+    () =>
+      [...allCases]
+        .filter((item) => item.state === "closed")
+        .sort(
+          (a, b) =>
+            new Date(b.lastUpdateAt).getTime() - new Date(a.lastUpdateAt).getTime(),
+        )
+        .slice(0, 12),
+    [allCases],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -248,12 +269,20 @@ export function QontrolApp() {
     }));
   }
 
-  async function mutateCase(caseId: string, action: "close") {
+  async function mutateCase(
+    caseId: string,
+    action: "close",
+    options?: { comment?: string },
+  ) {
     setActionError(null);
     setIsMutating(true);
     try {
       const response = await fetch(`/api/cases/${caseId}/${action}`, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(options ?? {}),
       });
       const payload = (await response.json()) as {
         case?: QontrolCase;
@@ -269,10 +298,12 @@ export function QontrolApp() {
         [payload.case!.id]: payload.case!,
       }));
       setActionError(payload.warning ?? null);
+      return payload.case!;
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to update case.";
       setActionError(message);
+      return null;
     } finally {
       setIsMutating(false);
     }
@@ -311,6 +342,8 @@ export function QontrolApp() {
       if (!response.ok || !payload.cases || payload.cases.length === 0) {
         throw new Error(payload.details ?? payload.error ?? "Route failed.");
       }
+      const routedCase =
+        payload.cases.find((caseItem) => caseItem.id === selectedCase.id) ?? payload.cases[0];
 
       setCases((current) => {
         const nextMap = { ...current };
@@ -344,7 +377,16 @@ export function QontrolApp() {
         }));
       }
 
-      setRouteDialog(null);
+      setRouteDialog((current) =>
+        current
+          ? {
+              ...current,
+              completed: true,
+              githubUrl: routedCase?.external?.url,
+              githubLabel: routedCase?.external?.urlLabel ?? "Open GitHub issue",
+            }
+          : current,
+      );
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to update case.";
@@ -593,7 +635,23 @@ export function QontrolApp() {
 
   function handleCloseCase() {
     if (!selectedCase) return;
-    void mutateCase(selectedCase.id, "close");
+    setCloseDialog({ comment: "" });
+  }
+
+  async function confirmCloseCase() {
+    if (!selectedCase || !closeDialog) return;
+    const updatedCase = await mutateCase(selectedCase.id, "close", {
+      comment: closeDialog.comment.trim() || undefined,
+    });
+    if (!updatedCase) return;
+    setCloseDialog((current) =>
+      current
+        ? {
+            ...current,
+            completed: true,
+          }
+        : current,
+    );
   }
 
   function handleReroute() {
@@ -632,6 +690,8 @@ export function QontrolApp() {
   }
 
   function handleTicketSelect(caseId: string) {
+    setCloseDialog(null);
+    setShowClosedTicketsDialog(false);
     setRouteDialog(null);
     setSelectedId(caseId);
     setActionError(null);
@@ -675,6 +735,7 @@ export function QontrolApp() {
   }
 
   const handleCloseDetails = useCallback(() => {
+    setCloseDialog(null);
     setRouteDialog(null);
     setSelectedId(null);
     setActionError(null);
@@ -690,18 +751,27 @@ export function QontrolApp() {
   }
 
   useEffect(() => {
-    if (!showDetailPane) return;
+    if (!showDetailPane && !routeDialog && !showClosedTicketsDialog && !closeDialog) return;
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "Escape") return;
       if (routeDialog) {
         setRouteDialog(null);
         return;
       }
+      if (closeDialog) {
+        if (!isMutating) setCloseDialog(null);
+        return;
+      }
+      if (showClosedTicketsDialog) {
+        setShowClosedTicketsDialog(false);
+        return;
+      }
+      if (!showDetailPane) return;
       handleCloseDetails();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [showDetailPane, handleCloseDetails, routeDialog]);
+  }, [showDetailPane, handleCloseDetails, routeDialog, showClosedTicketsDialog, closeDialog, isMutating]);
 
   return (
     <main className="page-shell">
@@ -871,7 +941,7 @@ export function QontrolApp() {
                             <div className="operational-summary-header">
                               <div className="operational-summary-label">
                                 <AiGeneratedIcon />
-                                <span>Latest GitHub discussion</span>
+                                <span>Latest GitHub takeaway</span>
                               </div>
                               <p className="operational-summary-meta">
                                 {selectedCase.external?.discussionUpdatedAt ?? "Recently updated"}
@@ -1292,13 +1362,48 @@ export function QontrolApp() {
               </div>
 
               <div className="routing-modal-body">
-                {isMutating ? (
-                  <div className="routing-modal-note">
-                    Creating the downstream GitHub ticket and preparing the handoff. This can take a
-                    few seconds while Qontrol waits for GitHub to respond.
+                {routeDialog.completed ? (
+                  <div className="routing-success-card">
+                    <div className="routing-success-header">
+                      <span aria-hidden="true" className="routing-success-badge">
+                        ✓
+                      </span>
+                      <div>
+                        <strong>Routing completed</strong>
+                        <p className="routing-success-copy">
+                          Engineers will work in GitHub. All GitHub comments, status changes, and
+                          updates sync back into Qontrol automatically.
+                        </p>
+                      </div>
+                    </div>
+
+                    {routeDialog.githubUrl ? (
+                      <a
+                        className="secondary-button inline-action-link"
+                        href={routeDialog.githubUrl}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        {routeDialog.githubLabel ?? "Open GitHub issue"}
+                      </a>
+                    ) : null}
+
+                    <p className="routing-success-meta">
+                      Qontrol will keep this case cluster linked to the shared GitHub ticket and reflect
+                      downstream progress back on the QM board.
+                    </p>
                   </div>
                 ) : null}
-                {routeDialog.relatedCaseIds.length > 0 ? (
+
+                {isMutating ? (
+                  <div className="routing-modal-note">
+                    <span aria-hidden="true" className="routing-loading-indicator">
+                      <span className="routing-spinner" />
+                      <span className="routing-loading-label">Whirring...</span>
+                    </span>
+                  </div>
+                ) : null}
+                {!routeDialog.completed && routeDialog.relatedCaseIds.length > 0 ? (
                   <>
                     <label className="routing-choice-card">
                       <input
@@ -1341,36 +1446,38 @@ export function QontrolApp() {
                       })}
                     </div>
                   </>
-                ) : (
+                ) : !routeDialog.completed ? (
                   <div className="routing-modal-note">
                     No additional related open tickets are available. Qontrol will create one GitHub
                     ticket for this case.
                   </div>
-                )}
+                ) : null}
 
-                <label className="routing-choice-card">
-                  <input
-                    checked={routeDialog.sendEmail}
-                    onChange={() =>
-                      setRouteDialog((current) =>
-                        current
-                          ? {
-                              ...current,
-                              sendEmail: !current.sendEmail,
-                            }
-                          : current,
-                      )
-                    }
-                    type="checkbox"
-                  />
-                  <div>
-                    <strong>Also open a short handoff email draft?</strong>
-                    <p>
-                      The draft will include recipients, the downstream GitHub ticket link, and the
-                      expected response back to QM.
-                    </p>
-                  </div>
-                </label>
+                {!routeDialog.completed ? (
+                  <label className="routing-choice-card">
+                    <input
+                      checked={routeDialog.sendEmail}
+                      onChange={() =>
+                        setRouteDialog((current) =>
+                          current
+                            ? {
+                                ...current,
+                                sendEmail: !current.sendEmail,
+                              }
+                            : current,
+                        )
+                      }
+                      type="checkbox"
+                    />
+                    <div>
+                      <strong>Also open a short handoff email draft?</strong>
+                      <p>
+                        The draft will include recipients, the downstream GitHub ticket link, and the
+                        expected response back to QM.
+                      </p>
+                    </div>
+                  </label>
+                ) : null}
               </div>
 
               <div className="routing-modal-footer">
@@ -1380,20 +1487,238 @@ export function QontrolApp() {
                   onClick={() => setRouteDialog(null)}
                   type="button"
                 >
-                  Cancel
+                  {routeDialog.completed ? "Close" : "Cancel"}
                 </button>
+                {routeDialog.completed && routeDialog.githubUrl ? (
+                  <a
+                    className="primary-button inline-action-link"
+                    href={routeDialog.githubUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {routeDialog.githubLabel ?? "Open GitHub issue"}
+                  </a>
+                ) : (
+                  <button
+                    className="primary-button"
+                    disabled={isMutating}
+                    onClick={confirmApproveAndRoute}
+                    type="button"
+                  >
+                    {isMutating ? (
+                      <span className="routing-button-content">
+                        <span aria-hidden="true" className="routing-spinner routing-spinner-inverse" />
+                        <span>
+                          {routeDialog.sendEmail
+                            ? "Routing and preparing email..."
+                            : "Routing..."}
+                        </span>
+                      </span>
+                    ) : (
+                      "Route ticket"
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {showClosedTicketsDialog ? (
+        <>
+          <div
+            className="routing-modal-backdrop"
+            onClick={() => setShowClosedTicketsDialog(false)}
+          />
+          <div className="routing-modal-shell">
+            <div
+              className="routing-modal-card closed-tickets-modal"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="routing-modal-header">
+                <div>
+                  <p className="eyebrow">Recently closed</p>
+                  <h3>Closed tickets</h3>
+                </div>
                 <button
-                  className="primary-button"
-                  disabled={isMutating}
-                  onClick={confirmApproveAndRoute}
+                  aria-label="Close recently closed tickets"
+                  className="icon-close-button"
+                  onClick={() => setShowClosedTicketsDialog(false)}
                   type="button"
                 >
-                  {isMutating
-                    ? routeDialog.sendEmail
-                      ? "Routing and preparing email..."
-                      : "Routing..."
-                    : "Route ticket"}
+                  ×
                 </button>
+              </div>
+
+              <div className="routing-modal-body">
+                {recentClosedCases.length > 0 ? (
+                  <div className="closed-ticket-list">
+                    {recentClosedCases.map((caseItem) => (
+                      <button
+                        className="closed-ticket-row"
+                        key={caseItem.id}
+                        onClick={() => handleTicketSelect(caseItem.id)}
+                        type="button"
+                      >
+                        <div className="closed-ticket-row-header">
+                          <strong>{caseItem.id}</strong>
+                          <span>{formatTimeline(caseItem.lastUpdateAt)}</span>
+                        </div>
+                        <p>{caseItem.title}</p>
+                        <div className="closed-ticket-row-meta">
+                          <span>{storyLabel[caseItem.story]}</span>
+                          <span>{caseItem.ownerTeam}</span>
+                          <span>{caseItem.severity}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="routing-modal-note">
+                    No recently closed tickets yet.
+                  </div>
+                )}
+              </div>
+
+              <div className="routing-modal-footer">
+                <button
+                  className="ghost-button"
+                  onClick={() => setShowClosedTicketsDialog(false)}
+                  type="button"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {closeDialog && selectedCase ? (
+        <>
+          <div
+            className="routing-modal-backdrop"
+            onClick={() => {
+              if (!isMutating) setCloseDialog(null);
+            }}
+          />
+          <div className="routing-modal-shell">
+            <div
+              className="routing-modal-card close-case-modal"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="routing-modal-header">
+                <div>
+                  <p className="eyebrow">Close case</p>
+                  <h3>{closeDialog.completed ? `${selectedCase.id} closed` : `Close ${selectedCase.id}`}</h3>
+                </div>
+                <button
+                  aria-label="Close close-case dialog"
+                  className="icon-close-button"
+                  disabled={isMutating}
+                  onClick={() => setCloseDialog(null)}
+                  type="button"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="routing-modal-body">
+                {closeDialog.completed ? (
+                  <div className="routing-success-card">
+                    <div className="routing-success-header">
+                      <span aria-hidden="true" className="routing-success-badge">
+                        ✓
+                      </span>
+                      <div>
+                        <strong>Case closed</strong>
+                        <p className="routing-success-copy">
+                          This ticket is now in the closed bucket and the closure note has been saved to
+                          the Qontrol timeline.
+                        </p>
+                      </div>
+                    </div>
+                    {closeDialog.comment.trim() ? (
+                      <p className="close-dialog-comment-preview">
+                        <strong>Closure note:</strong> {closeDialog.comment.trim()}
+                      </p>
+                    ) : (
+                      <p className="routing-success-meta">
+                        Closed without an additional note.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {isMutating ? (
+                      <div className="routing-modal-note">
+                        <span aria-hidden="true" className="routing-loading-indicator">
+                          <span className="routing-spinner" />
+                          <span className="routing-loading-label">Wrapping up...</span>
+                        </span>
+                      </div>
+                    ) : null}
+
+                    <div className="routing-choice-card close-dialog-card">
+                      <div className="close-dialog-copy">
+                        <strong>Optional closure comment</strong>
+                        <p>
+                          Add a short note if you want the reason, validation, or follow-up captured in
+                          the timeline.
+                        </p>
+                      </div>
+                      <textarea
+                        className="email-editor close-comment-editor"
+                        disabled={isMutating}
+                        onChange={(event) =>
+                          setCloseDialog((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  comment: event.target.value,
+                                }
+                              : current,
+                          )
+                        }
+                        placeholder="Closed after QM verification passed..."
+                        value={closeDialog.comment}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="routing-modal-footer">
+                <button
+                  className="ghost-button"
+                  disabled={isMutating}
+                  onClick={() => setCloseDialog(null)}
+                  type="button"
+                >
+                  {closeDialog.completed ? "Done" : "Cancel"}
+                </button>
+                {closeDialog.completed ? null : (
+                  <button
+                    className="danger-button"
+                    disabled={isMutating}
+                    onClick={confirmCloseCase}
+                    type="button"
+                  >
+                    {isMutating ? (
+                      <span className="routing-button-content">
+                        <span aria-hidden="true" className="routing-spinner routing-spinner-inverse" />
+                        <span>
+                          {closeDialog.comment.trim() ? "Closing with comment..." : "Closing..."}
+                        </span>
+                      </span>
+                    ) : closeDialog.comment.trim() ? (
+                      "Close with comment"
+                    ) : (
+                      "Close case"
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1410,7 +1735,7 @@ export function QontrolApp() {
               </div>
               <button
                 className="ghost-button"
-                onClick={() => console.log("TODO: open closed tickets drawer")}
+                onClick={() => setShowClosedTicketsDialog(true)}
                 type="button"
               >
                 View recently closed tickets
