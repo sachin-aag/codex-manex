@@ -391,15 +391,118 @@ button {
   gap: 24px;
 }
 
-.workspace-grid.with-detail {
-  grid-template-columns: minmax(0, 1fr) var(--detail-pane-width);
-  gap: 16px;
-  align-items: start;
+.workspace-grid.hidden {
+  display: none;
 }
 
-.workspace-grid.with-detail .detail-shell {
-  width: min(100%, var(--detail-pane-width));
-  margin-top: -12px;
+/* ---- Focused state (ticket selected) ---- */
+
+.focused-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(23, 33, 43, 0.45);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.focused-layout {
+  position: fixed;
+  inset: 0;
+  z-index: 11;
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 16px;
+  padding: 24px 32px;
+  pointer-events: none;
+}
+
+.focused-kanban,
+.focused-detail {
+  pointer-events: auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.focused-kanban {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.focused-kanban-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.focused-kanban-nav-center {
+  flex: 1;
+  text-align: center;
+}
+
+.focused-kanban-nav-center h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.focused-kanban-nav-center span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.focused-kanban-cards {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.focused-detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.unified-detail-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.panel-section {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-section:last-child {
+  border-bottom: none;
+}
+
+.panel-section.case-footer-actions {
+  display: flex;
+  justify-content: center;
+  padding: 14px 18px;
+}
+
+.unified-detail-card .detail-grid {
+  border-bottom: none;
+}
+
+.unified-detail-card .detail-main > .panel-section:last-child,
+.unified-detail-card .detail-side > .panel-section:last-child {
+  border-bottom: none;
 }
 
 .board-shell,
@@ -437,15 +540,10 @@ button {
 
 .board-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(240px, 1fr));
+  grid-template-columns: repeat(3, minmax(240px, 1fr));
   gap: 16px;
   overflow-x: auto;
   padding-bottom: 4px;
-}
-
-.workspace-grid.with-detail .board-grid {
-  /* Keep Kanban columns at a stable size; scroll instead of shrinking cards. */
-  grid-template-columns: repeat(4, 340px);
 }
 
 .board-column {
@@ -1213,14 +1311,14 @@ button {
 }
 
 @media (max-width: 1080px) {
-  .workspace-grid,
-  .workspace-grid.with-detail {
+  .workspace-grid {
     grid-template-columns: 1fr;
   }
 
-  .workspace-grid.with-detail .detail-shell {
-    width: 100%;
-    margin-top: 0;
+  .focused-layout {
+    grid-template-columns: 1fr;
+    padding: 16px;
+    overflow-y: auto;
   }
 
   .detail-grid {
