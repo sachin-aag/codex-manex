@@ -528,6 +528,103 @@ button {
   border-bottom: none;
 }
 
+/* ---- Closed tickets modal ---- */
+
+.closed-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 50;
+}
+
+.closed-modal {
+  width: min(100%, 640px);
+  max-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.closed-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.closed-modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.closed-modal-count {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.closed-modal-body {
+  overflow-y: auto;
+  padding: 12px 14px 14px;
+}
+
+.closed-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.closed-modal-row {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.closed-modal-row:hover {
+  border-color: color-mix(in srgb, var(--brand) 40%, white);
+  box-shadow: var(--shadow-sm);
+}
+
+.closed-modal-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.closed-modal-title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.closed-modal-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.closed-modal-date {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-left: auto;
+}
+
 .board-shell,
 .detail-shell {
   min-width: 0;

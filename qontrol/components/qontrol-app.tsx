@@ -46,6 +46,7 @@ export function QontrolApp() {
   const [isLoading, setIsLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showClosedModal, setShowClosedModal] = useState(false);
 
   const orderedCases = useMemo(() => {
     return Object.values(cases).sort((a, b) => {
@@ -61,6 +62,10 @@ export function QontrolApp() {
       );
     });
   }, [cases]);
+  const closedCases = useMemo(
+    () => orderedCases.filter((c) => c.state === "closed"),
+    [orderedCases],
+  );
   const selectedCase = selectedId ? cases[selectedId] : undefined;
   const usesGitHubBoard = selectedCase ? isRdBoardCase(selectedCase) : false;
   const mockToolName = selectedCase ? getMockToolName(selectedCase) : null;
@@ -426,13 +431,18 @@ export function QontrolApp() {
   }
 
   useEffect(() => {
-    if (!showDetailPane) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") handleCloseDetails();
+      if (e.key !== "Escape") return;
+      if (showClosedModal) {
+        setShowClosedModal(false);
+      } else if (showDetailPane) {
+        handleCloseDetails();
+      }
     }
+    if (!showDetailPane && !showClosedModal) return;
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [showDetailPane, handleCloseDetails]);
+  }, [showDetailPane, showClosedModal, handleCloseDetails]);
 
   return (
     <main className="page-shell">
@@ -914,7 +924,7 @@ export function QontrolApp() {
             </div>
             <button
               className="ghost-button"
-              onClick={() => console.log("TODO: open closed tickets drawer")}
+              onClick={() => setShowClosedModal(true)}
               type="button"
             >
               View recently closed tickets
@@ -954,6 +964,67 @@ export function QontrolApp() {
           </div>
         </div>
       </section>
+
+      {showClosedModal ? (
+        <div
+          className="closed-modal-backdrop"
+          onClick={() => setShowClosedModal(false)}
+        >
+          <div
+            className="closed-modal card-surface"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="closed-modal-header">
+              <div>
+                <h2>Recently closed tickets</h2>
+                <p className="closed-modal-count">{closedCases.length} cases</p>
+              </div>
+              <button
+                aria-label="Close"
+                className="icon-close-button"
+                onClick={() => setShowClosedModal(false)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <div className="closed-modal-body">
+              {closedCases.length === 0 ? (
+                <p className="board-status">No closed cases yet.</p>
+              ) : (
+                <div className="closed-modal-list">
+                  {closedCases.map((item) => (
+                    <button
+                      className="closed-modal-row"
+                      key={item.id}
+                      onClick={() => {
+                        setShowClosedModal(false);
+                        handleTicketSelect(item.id);
+                      }}
+                      type="button"
+                    >
+                      <div className="closed-modal-row-main">
+                        <span className="detail-id">{item.id}</span>
+                        <span className="closed-modal-title">{item.title}</span>
+                      </div>
+                      <div className="closed-modal-row-meta">
+                        <Badge tone="neutral">{item.sourceType}</Badge>
+                        <Badge tone="story">{storyLabel[item.story]}</Badge>
+                        <span className={`severity-badge severity-${severityTone(item.severity)}`}>
+                          {item.severity.charAt(0).toUpperCase() + item.severity.slice(1)}
+                        </span>
+                        <span className="closed-modal-date">
+                          {timeSince(item.lastUpdateAt)}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
