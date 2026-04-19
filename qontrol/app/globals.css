@@ -2111,74 +2111,88 @@ button {
 .story-graph-detail {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 14px 16px;
+  gap: 4px;
+  padding: 8px;
   background: color-mix(in srgb, var(--surface-subtle) 82%, white);
   min-width: 0;
 }
 
 .story-graph-detail-overlay {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  width: min(260px, calc(100% - 24px));
-  max-height: calc(100% - 24px);
-  overflow: auto;
+  top: 8px;
+  left: 8px;
+  width: min(156px, calc(100% - 16px));
+  min-height: 112px;
+  max-height: 124px;
+  overflow: hidden;
   z-index: 3;
   border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--surface) 90%, white);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 84%, white);
   backdrop-filter: blur(8px);
-  box-shadow: 0 8px 24px rgba(15, 23, 32, 0.08);
+  box-shadow: 0 4px 12px rgba(15, 23, 32, 0.06);
+  pointer-events: none;
 }
 
-.story-graph-detail span {
-  color: var(--text-muted);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
-.story-graph-detail strong {
-  font-size: 16px;
-  letter-spacing: -0.02em;
+.story-graph-detail-title {
+  font-size: 11px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
   color: var(--text-primary);
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .story-graph-detail p {
   margin: 0;
   color: var(--text-secondary);
-  line-height: 1.42;
-  font-size: 12px;
+  line-height: 1.18;
+  font-size: 8px;
 }
 
 .story-graph-detail-value {
   font-weight: 600;
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .story-graph-facts {
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 
 .story-graph-fact {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 7px;
   background: var(--surface);
-  padding: 9px 10px;
+  padding: 4px 6px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 2px;
 }
 
 .story-graph-fact span {
-  font-size: 9px;
+  color: var(--text-muted);
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .story-graph-fact strong {
-  font-size: 12px;
-  line-height: 1.35;
+  font-size: 8px;
+  line-height: 1.15;
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .story-flow-node {
@@ -3381,6 +3395,7 @@ button {
   font-size: 13px;
   line-height: 1.5;
   display: -webkit-box;
+  line-clamp: 3;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;

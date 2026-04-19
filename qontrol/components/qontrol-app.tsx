@@ -111,50 +111,58 @@ export function QontrolApp() {
 
   const allCases = useMemo(() => Object.values(cases), [cases]);
   const topDefectTypes = useMemo(() => getTopDefectTypes(allCases), [allCases]);
+  const filterContexts = useMemo(
+    () => ({
+      sourceTypes: getContextualCases(allCases, filters, topDefectTypes, "sourceTypes"),
+      stories: getContextualCases(allCases, filters, topDefectTypes, "stories"),
+      defectTypes: getContextualCases(allCases, filters, topDefectTypes, "defectTypes"),
+      responsibleTeams: getContextualCases(
+        allCases,
+        filters,
+        topDefectTypes,
+        "responsibleTeams",
+      ),
+      clarities: getContextualCases(allCases, filters, topDefectTypes, "clarities"),
+    }),
+    [allCases, filters, topDefectTypes],
+  );
   const filterOptions = useMemo(
     () => ({
-      sourceTypes: sourceTypeOrder.filter((value) =>
-        allCases.some((item) => item.sourceType === value),
+      sourceTypes: getOrderedFilterOptions(
+        sourceTypeOrder,
+        filterContexts.sourceTypes,
+        (item) => item.sourceType,
+        filters.sourceTypes,
       ),
-      stories: storyOrder.filter((value) =>
-        allCases.some((item) => item.story === value),
+      stories: getOrderedFilterOptions(
+        storyOrder,
+        filterContexts.stories,
+        (item) => item.story,
+        filters.stories,
       ),
-      defectTypes: getDefectTypeFilterOptions(allCases, topDefectTypes),
-      responsibleTeams: responsibleTeamOrder.filter((value) =>
-        allCases.some((item) => item.responsibleTeam === value),
+      defectTypes: mergeFilterOptions(
+        getDefectTypeFilterOptions(filterContexts.defectTypes, topDefectTypes),
+        filters.defectTypes,
       ),
-      clarities: clarityOrder.filter((value) =>
-        allCases.some((item) => item.clarity === value),
+      responsibleTeams: getOrderedFilterOptions(
+        responsibleTeamOrder,
+        filterContexts.responsibleTeams,
+        (item) => item.responsibleTeam,
+        filters.responsibleTeams,
+      ),
+      clarities: getOrderedFilterOptions(
+        clarityOrder,
+        filterContexts.clarities,
+        (item) => item.clarity,
+        filters.clarities,
       ),
     }),
-    [allCases, topDefectTypes],
+    [filterContexts, filters, topDefectTypes],
   );
-  const filteredCases = useMemo(() => {
-    return allCases.filter((item) => {
-      if (filters.sourceTypes.length > 0 && !filters.sourceTypes.includes(item.sourceType)) {
-        return false;
-      }
-      if (filters.stories.length > 0 && !filters.stories.includes(item.story)) {
-        return false;
-      }
-      if (
-        filters.defectTypes.length > 0 &&
-        !matchesDefectTypeFilter(item.defectType, filters.defectTypes, topDefectTypes)
-      ) {
-        return false;
-      }
-      if (
-        filters.responsibleTeams.length > 0 &&
-        !filters.responsibleTeams.includes(item.responsibleTeam)
-      ) {
-        return false;
-      }
-      if (filters.clarities.length > 0 && !filters.clarities.includes(item.clarity)) {
-        return false;
-      }
-      return true;
-    });
-  }, [allCases, filters, topDefectTypes]);
+  const filteredCases = useMemo(
+    () => allCases.filter((item) => matchesBoardFilters(item, filters, topDefectTypes)),
+    [allCases, filters, topDefectTypes],
+  );
   const orderedCases = useMemo(() => {
     return [...filteredCases].sort((a, b) => {
       const followUpDiff =
@@ -179,6 +187,12 @@ export function QontrolApp() {
   );
   const relatedRouteCount = routeableSimilarCases.length;
   const similarTickets = selectedCase?.similarTickets.slice(0, 3) ?? [];
+  const usesComplaintSimilarity =
+    selectedCase?.sourceType === "claim" && selectedCase.similarClaimIds.length > 0;
+  const similarPanelTitle = usesComplaintSimilarity ? "Similar claims" : "Similar tickets";
+  const similarPanelDescription = usesComplaintSimilarity
+    ? "Top complaint-text matches pulled from other claim records."
+    : "Operationally useful matches, not just semantic similarity.";
   const aiGeneratedLearning = selectedCase
     ? buildAiGeneratedLearning(similarTickets, selectedCase.defectType)
     : null;
@@ -1024,7 +1038,7 @@ export function QontrolApp() {
                         />
                       </Panel>
 
-                      <Panel unified title="Similar tickets" description="Operationally useful matches, not just semantic similarity.">
+                      <Panel unified title={similarPanelTitle} description={similarPanelDescription}>
                         <div className="similar-grid">
                           {similarTickets.length > 0 ? (
                             <>
@@ -1032,7 +1046,7 @@ export function QontrolApp() {
                                 <table className="pf-table similar-table">
                                   <thead>
                                     <tr>
-                                      <th>Ticket</th>
+                                      <th>{usesComplaintSimilarity ? "Claim" : "Ticket"}</th>
                                       <th>Team</th>
                                       <th>Fixed by</th>
                                       <th>Time to fix</th>
@@ -1049,7 +1063,9 @@ export function QontrolApp() {
                                             type="button"
                                           >
                                             <span className="similar-ticket-primary">{ticket.id}</span>
-                                            <span className="similar-ticket-secondary">{ticket.title}</span>
+                                            <span className="similar-ticket-secondary">
+                                              {usesComplaintSimilarity ? ticket.preview : ticket.title}
+                                            </span>
                                           </button>
                                         </td>
                                         <td>{ticket.team}</td>
@@ -1072,19 +1088,24 @@ export function QontrolApp() {
                                     <span>AI-generated learning</span>
                                   </div>
                                   <p className="ai-learning-subtitle">
-                                    Synthesized from closed similar tickets.
+                                    {usesComplaintSimilarity
+                                      ? "Synthesized from closed similar claims."
+                                      : "Synthesized from closed similar tickets."}
                                   </p>
                                 </div>
                                 <p className="ai-learning-copy">
                                   {aiGeneratedLearning ??
-                                    "No closed similar tickets yet. Once a comparable ticket is resolved, Qontrol will synthesize the reusable learning here."}
+                                    (usesComplaintSimilarity
+                                      ? "No closed similar claims yet. Once a comparable claim is resolved, Qontrol will synthesize the reusable learning here."
+                                      : "No closed similar tickets yet. Once a comparable ticket is resolved, Qontrol will synthesize the reusable learning here.")}
                                 </p>
                               </div>
                             </>
                           ) : (
                             <p className="story-visual-summary">
-                              No close matches yet. As more routed cases accumulate, this panel will
-                              start surfacing reusable fixes and learnings.
+                              {usesComplaintSimilarity
+                                ? "No complaint-text matches are available yet for this claim."
+                                : "No close matches yet. As more routed cases accumulate, this panel will start surfacing reusable fixes and learnings."}
                             </p>
                           )}
                         </div>
@@ -2222,6 +2243,75 @@ function getFilterSummary<T extends string>(
     return labelMap?.[value] ?? value;
   }
   return `${selected.length} selected`;
+}
+
+function matchesBoardFilters(
+  item: QontrolCase,
+  filters: BoardFilters,
+  topDefectTypes: string[],
+  ignoredKey?: keyof BoardFilters,
+) {
+  if (
+    ignoredKey !== "sourceTypes" &&
+    filters.sourceTypes.length > 0 &&
+    !filters.sourceTypes.includes(item.sourceType)
+  ) {
+    return false;
+  }
+  if (
+    ignoredKey !== "stories" &&
+    filters.stories.length > 0 &&
+    !filters.stories.includes(item.story)
+  ) {
+    return false;
+  }
+  if (
+    ignoredKey !== "defectTypes" &&
+    filters.defectTypes.length > 0 &&
+    !matchesDefectTypeFilter(item.defectType, filters.defectTypes, topDefectTypes)
+  ) {
+    return false;
+  }
+  if (
+    ignoredKey !== "responsibleTeams" &&
+    filters.responsibleTeams.length > 0 &&
+    !filters.responsibleTeams.includes(item.responsibleTeam)
+  ) {
+    return false;
+  }
+  if (
+    ignoredKey !== "clarities" &&
+    filters.clarities.length > 0 &&
+    !filters.clarities.includes(item.clarity)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function getContextualCases(
+  items: QontrolCase[],
+  filters: BoardFilters,
+  topDefectTypes: string[],
+  ignoredKey: keyof BoardFilters,
+) {
+  return items.filter((item) => matchesBoardFilters(item, filters, topDefectTypes, ignoredKey));
+}
+
+function getOrderedFilterOptions<T extends string>(
+  orderedValues: T[],
+  items: QontrolCase[],
+  getValue: (item: QontrolCase) => T,
+  selected: T[],
+) {
+  const selectedSet = new Set(selected);
+  return orderedValues.filter(
+    (value) => selectedSet.has(value) || items.some((item) => getValue(item) === value),
+  );
+}
+
+function mergeFilterOptions<T extends string>(options: T[], selected: T[]) {
+  return [...options, ...selected.filter((value) => !options.includes(value))];
 }
 
 function getTopDefectTypes(items: QontrolCase[]) {

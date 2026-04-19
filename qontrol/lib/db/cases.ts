@@ -67,6 +67,7 @@ type ClaimRow = {
   claim_ts: string | null;
   market: string | null;
   complaint_text: string | null;
+  similar_to: string[] | null;
   reported_part_number: string | null;
   cost: number | null;
   mapped_defect_id: string | null;
@@ -748,17 +749,23 @@ function buildSimilarTickets(
   current: QontrolCase,
   related: QontrolCase[],
 ): QontrolCase["similarTickets"] {
-  return related
-    .slice()
-    .sort((a, b) => {
-      const priorityDiff = similarTicketPriority(a) - similarTicketPriority(b);
-      if (priorityDiff !== 0) return priorityDiff;
-      return new Date(b.lastUpdateAt).getTime() - new Date(a.lastUpdateAt).getTime();
-    })
+  const rankedRelated =
+    current.sourceType === "claim" && current.similarClaimIds.length > 0
+      ? related
+      : related
+          .slice()
+          .sort((a, b) => {
+            const priorityDiff = similarTicketPriority(a) - similarTicketPriority(b);
+            if (priorityDiff !== 0) return priorityDiff;
+            return new Date(b.lastUpdateAt).getTime() - new Date(a.lastUpdateAt).getTime();
+          });
+
+  return rankedRelated
     .slice(0, 3)
     .map((item) => ({
       id: item.id,
       title: item.title,
+      preview: item.summary,
       story: item.story,
       team: item.ownerTeam,
       fixedBy: item.state === "closed" ? item.assignee || item.ownerTeam || item.qmOwner : "-",
@@ -846,6 +853,7 @@ function buildBaseCaseFromDefect(row: DefectRow): QontrolCase {
       permanentFix: signals.permanentFix,
       validation: signals.validation,
     },
+    similarClaimIds: [],
     similarTickets: [],
     learnings: [],
     timeline: [],
@@ -943,6 +951,9 @@ function buildBaseCaseFromClaim(row: ClaimRow): QontrolCase {
       permanentFix: signals.permanentFix,
       validation: signals.validation,
     },
+    similarClaimIds: Array.from(
+      new Set((row.similar_to ?? []).filter((claimId) => claimId !== row.field_claim_id)),
+    ).slice(0, 3),
     similarTickets: [],
     learnings: [],
     timeline: [],
@@ -1108,7 +1119,20 @@ function buildTriageContext(params: {
   dominantOperator?: string;
   recurringOrders?: string[];
 }): TriageContext {
+  const comparableCases = params.matchingCases.filter((entry) => entry.id !== params.item.id);
+  const openMatchingCases = comparableCases.filter((entry) => entry.state !== "closed");
+
   if (!params.item.similarityKey) {
+    if (params.item.sourceType === "claim" && comparableCases.length > 0) {
+      return {
+        matchingCases: comparableCases.length,
+        openMatchingCases: openMatchingCases.length,
+        queuePriority: formatQueuePriority(params.item, openMatchingCases.length),
+        timeSignal: `Complaint text matches ${comparableCases.length} similar field claim${comparableCases.length === 1 ? "" : "s"}.`,
+        nextMove: params.item.proposedFix.containment,
+      };
+    }
+
     return {
       matchingCases: 0,
       openMatchingCases: 0,
@@ -1117,8 +1141,6 @@ function buildTriageContext(params: {
       nextMove: params.item.proposedFix.containment,
     };
   }
-
-  const openMatchingCases = params.matchingCases.filter((entry) => entry.state !== "closed");
 
   let timeSignal = defaultTimeSignal(params.item.story);
   if (params.item.story === "supplier") {
@@ -1135,12 +1157,25 @@ function buildTriageContext(params: {
   }
 
   return {
-    matchingCases: params.matchingCases.length,
+    matchingCases: comparableCases.length,
     openMatchingCases: openMatchingCases.length,
     queuePriority: formatQueuePriority(params.item, openMatchingCases.length),
     timeSignal,
     nextMove: params.item.proposedFix.containment,
   };
+}
+
+function getSimilarClaimCases(item: QontrolCase, allCases: QontrolCase[]) {
+  if (item.sourceType !== "claim" || item.similarClaimIds.length === 0) {
+    return [];
+  }
+
+  const caseById = new Map(allCases.map((entry) => [entry.id, entry]));
+
+  return item.similarClaimIds.filter((claimId) => claimId !== item.id).flatMap((claimId) => {
+    const match = caseById.get(claimId);
+    return match ? [match] : [];
+  });
 }
 
 function emptyLagDistribution() {
@@ -1828,7 +1863,7 @@ function decorateCase(params: {
   bomPartsByPart: Map<string, BomPartInstallRow[]>;
   bomNodesByBom: Map<string, BomNodeRow[]>;
 }): QontrolCase {
-  const matchingCases = (params.item.similarityKey
+  const patternMatchingCases = (params.item.similarityKey
     ? params.allCases.filter((entry) => entry.similarityKey === params.item.similarityKey)
     : []
   )
@@ -1836,7 +1871,15 @@ function decorateCase(params: {
       (a, b) =>
         new Date(b.lastUpdateAt).getTime() - new Date(a.lastUpdateAt).getTime(),
     );
-  const relatedCases = matchingCases.filter((entry) => entry.id !== params.item.id);
+  const similarClaimCases = getSimilarClaimCases(params.item, params.allCases);
+  const matchingCases =
+    similarClaimCases.length > 0
+      ? [params.item, ...similarClaimCases]
+      : patternMatchingCases;
+  const relatedCases =
+    similarClaimCases.length > 0
+      ? similarClaimCases
+      : patternMatchingCases.filter((entry) => entry.id !== params.item.id);
   const matchingProductIds = new Set(matchingCases.map((entry) => entry.productId));
 
   const relatedDefects = params.item.similarityKey
@@ -1987,7 +2030,7 @@ export async function listCases(): Promise<QontrolCase[]> {
       method: "GET",
       query: {
         select:
-          "field_claim_id,product_id,claim_ts,market,complaint_text,reported_part_number,cost,mapped_defect_id,mapped_defect_code,mapped_defect_severity,notes,article_id,article_name,product_build_ts,detected_section_name,days_from_build",
+          "field_claim_id,product_id,claim_ts,market,complaint_text,similar_to,reported_part_number,cost,mapped_defect_id,mapped_defect_code,mapped_defect_severity,notes,article_id,article_name,product_build_ts,detected_section_name,days_from_build",
         order: "claim_ts.desc",
         limit: "120",
       },
