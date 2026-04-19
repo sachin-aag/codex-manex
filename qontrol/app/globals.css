@@ -296,6 +296,16 @@ button {
   align-items: stretch;
 }
 
+.kpi-bar--5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.rd-kpi-bar .kpi-card-hint {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+}
+
 .kpi-card {
   --kpi-strip: var(--border-strong);
   display: flex;
@@ -2962,6 +2972,15 @@ button {
   font-family: var(--font-sans), sans-serif;
 }
 
+.recharts-host *:focus,
+.recharts-host *:focus-visible,
+.recharts-surface:focus,
+.recharts-surface:focus-visible,
+.recharts-wrapper:focus,
+.recharts-wrapper:focus-visible {
+  outline: none;
+}
+
 .recharts-cartesian-axis-tick-value {
   fill: var(--text-muted);
 }
@@ -3088,6 +3107,7 @@ button {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  padding: 0 18px;
 }
 
 .claim-lag-legend-chip {
@@ -3119,6 +3139,15 @@ button {
 .claim-lag-legend-label {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.claim-lag-legend-overflow {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 6px 10px;
 }
 
 @media (max-width: 900px) {
@@ -3617,7 +3646,7 @@ button {
 }
 
 /* Obere drei Hero-KPI-Kacheln: Beschriftung und Werte schwarz */
-[data-dept="rd"] .hero-stats .metric-card span,
+[data-dept="rd"] .hero-stats .metric-card.kpi-card .kpi-card-label-row > span,
 [data-dept="rd"] .hero-stats .metric-card strong {
   color: #000000;
 }
@@ -3634,7 +3663,31 @@ button {
 
 /* ---- R&D layout utilities ---- */
 
-/* KPI info icon + tooltip */
+/* KPI info icon + tooltip (R&D hero cards: label + icon in a row — no overlap) */
+
+.kpi-card-label-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.kpi-card .kpi-card-label-row > span {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+  display: block;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.metric-card.kpi-card .kpi-info-btn {
+  position: static;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
 
 .kpi-info-btn {
   position: absolute;
@@ -3707,6 +3760,18 @@ button {
 
 .rd-dashboard-row.rd-grid {
   align-items: stretch;
+}
+
+.rd-dashboard-row .stack-list {
+  min-height: 0;
+  height: 100%;
+}
+
+.rd-dashboard-row .stack-list > .rd-chart-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .rd-chart-panel {
@@ -3818,7 +3883,8 @@ button {
 /* Claim lag donut */
 .rd-donut-wrap {
   position: relative;
-  min-height: var(--chart-plot-height);
+  flex: 1;
+  min-height: 200px;
   min-width: 0;
   width: 100%;
   padding: 0 8px 8px;
@@ -3826,10 +3892,18 @@ button {
 }
 
 .rd-donut-chart {
-  min-height: 300px;
+  min-height: 200px;
+  height: 100%;
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
+}
+
+/* Override shared .recharts-host.chart-plot height so donut fills stretched column */
+.recharts-host.chart-plot.rd-donut-chart {
+  height: 100%;
+  min-height: 200px;
+  flex-shrink: 1;
 }
 
 .rd-donut-center-label {
@@ -3917,19 +3991,6 @@ button {
   border: 1px solid var(--border);
 }
 
-.rd-lag-severity-chart {
-  min-height: 300px;
-  min-width: 0;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-/* Same responsive height as QM claim scatter; beats fixed --chart-plot-height for this chart */
-.recharts-host.chart-plot.claim-lag-chart-plot.rd-lag-severity-chart {
-  height: clamp(280px, 36vw, 340px);
-  min-height: 280px;
-}
-
 /* Design-gap alert */
 .rd-alert-card {
   margin: 0 18px 18px;
@@ -3990,7 +4051,7 @@ button {
 
 .rd-alert-row {
   display: grid;
-  grid-template-columns: minmax(0, 110px) 1fr minmax(48px, auto);
+  grid-template-columns: minmax(80px, 120px) 1fr minmax(48px, auto);
   gap: 10px;
   align-items: center;
   padding: 10px 0;
@@ -4001,18 +4062,39 @@ button {
   transition: background 0.12s ease;
 }
 
+@media (max-width: 600px) {
+  .rd-alert-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .rd-alert-row-lag {
+    align-self: flex-end;
+  }
+
+  .rd-alert-row-product,
+  .rd-alert-row-article {
+    white-space: normal;
+  }
+}
+
 .rd-alert-row:last-child {
   border-bottom: none;
 }
 
-.rd-alert-row:hover,
+.rd-alert-row:hover {
+  background: transparent;
+}
+
+.rd-alert-row:hover .rd-alert-row-id {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .rd-alert-row.is-linked {
-  background: color-mix(in srgb, var(--surface) 65%, transparent);
-  border-radius: 8px;
-  padding-left: 8px;
-  padding-right: 8px;
-  margin-left: -8px;
-  margin-right: -8px;
+  background: transparent;
 }
 
 .rd-alert-row-id {
@@ -4238,19 +4320,70 @@ button {
   border-bottom: none;
 }
 
-.rd-row-link:hover,
+.rd-row-link:hover {
+  background: transparent;
+  outline-color: transparent;
+}
+
+.rd-row-link:hover strong {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .rd-row.is-linked {
-  background: color-mix(in srgb, var(--rd-accent-soft) 80%, transparent);
-  outline-color: var(--rd-accent-border);
+  background: transparent;
+  outline-color: transparent;
 }
 
 .rd-row-link.is-linked {
-  background: var(--rd-accent-soft);
+  background: transparent;
 }
 
 .rd-inbox-row {
   grid-template-columns: 110px 1fr 110px 70px 70px 120px;
   align-items: center;
+}
+
+@media (max-width: 900px) {
+  .rd-inbox-row,
+  .rd-inbox-table-header {
+    grid-template-columns: 100px 1fr 80px 70px !important;
+  }
+
+  .rd-inbox-row > :nth-child(5),
+  .rd-inbox-row > :nth-child(6),
+  .rd-inbox-table-header > :nth-child(5),
+  .rd-inbox-table-header > :nth-child(6) {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .rd-inbox-table-header {
+    display: none;
+  }
+
+  .rd-inbox-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 0;
+  }
+
+  .rd-inbox-row > strong {
+    font-size: 14px;
+  }
+
+  .rd-inbox-row > span:nth-of-type(1) {
+    width: 100%;
+    line-height: 1.4;
+  }
+
+  .rd-inbox-row > span,
+  .rd-inbox-row > small {
+    white-space: normal;
+  }
 }
 
 .rd-inbox-row strong {
@@ -4665,6 +4798,31 @@ button {
 
 /* ---- QM AI Briefing ---- */
 
+.briefing-clip-1,
+.briefing-clip-2,
+.briefing-clip-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.briefing-clip-1 {
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+
+.briefing-clip-2 {
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.briefing-clip-3 {
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
 .briefing-embed {
   margin-bottom: 20px;
 }
@@ -4733,7 +4891,7 @@ button {
 }
 
 .briefing-grid {
-  --briefing-triple-col-body-max: min(12.5rem, 40vh);
+  --briefing-triple-col-body-max: min(10rem, 34vh);
 
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4763,6 +4921,16 @@ button {
   scrollbar-gutter: stable;
 }
 
+/* Taller cap: compact single-line issues so the full table is usually visible without scroll */
+.briefing-pane-scroll--action-fit {
+  max-height: min(20rem, 52vh);
+}
+
+/* Patterns: keep column shorter — insight text is line-clamped */
+.briefing-pane-scroll--patterns {
+  max-height: min(9.5rem, 32vh);
+}
+
 .briefing-table-wrap.briefing-pane-scroll .briefing-table thead th {
   position: sticky;
   top: 0;
@@ -4784,6 +4952,12 @@ button {
   font-size: 12px;
   line-height: 1.4;
   color: var(--text-muted);
+}
+
+.briefing-pane-sub--tight {
+  margin-bottom: 8px;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .briefing-empty {
@@ -4827,6 +5001,18 @@ button {
 
 .briefing-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+.briefing-pane--action .briefing-table th,
+.briefing-pane--action .briefing-table td {
+  padding: 5px 8px;
+  font-size: 11px;
+  line-height: 1.35;
+  vertical-align: middle;
+}
+
+.briefing-pane--action .briefing-table th {
+  font-size: 9px;
 }
 
 .briefing-severity-age {
@@ -4912,6 +5098,10 @@ button {
   border-bottom: 1px solid var(--border);
 }
 
+.briefing-pattern-item--compact {
+  padding-bottom: 8px;
+}
+
 .briefing-pattern-item:last-child {
   border-bottom: none;
   padding-bottom: 0;
@@ -4930,15 +5120,15 @@ button {
 }
 
 .briefing-pattern-products {
-  margin: 6px 0 0;
-  font-size: 12px;
+  margin: 4px 0 0;
+  font-size: 11px;
   color: var(--text-secondary);
 }
 
 .briefing-pattern-trend {
-  margin: 6px 0 0;
-  font-size: 12px;
-  line-height: 1.45;
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
   color: var(--text-muted);
 }
 

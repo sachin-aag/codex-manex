@@ -209,7 +209,11 @@ export default function PortfolioPage() {
               ? `${dashKpis.avgDaysToClose.toFixed(1)} days`
               : "—"}
           </span>
-          <p className="kpi-card-hint">Average days to first rework</p>
+          <p className="kpi-card-hint">
+            {dashKpis?.avgDaysToClose != null
+              ? dashKpis.avgDaysToCloseLabel
+              : "Capture → closure in Qontrol, or rework lag if no closures"}
+          </p>
         </div>
       </section>
 

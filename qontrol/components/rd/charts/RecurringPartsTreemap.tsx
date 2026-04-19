@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useMemo } from "react";
 import { Rectangle, ResponsiveContainer, Tooltip, Treemap } from "recharts";
 import type { TreemapNode } from "recharts";
@@ -15,34 +14,71 @@ type RecurringRow = {
 type Props = {
   rows: RecurringRow[];
   maxShown?: number;
-  /** Preserved when navigating to part focus (time filter). */
-  timeRange?: { from: string; to: string };
 };
 
-function intensityFill(count: number, max: number): string {
-  if (max <= 0) return "var(--brand-soft)";
-  const t = Math.min(count / max, 1);
-  const pct = Math.round(35 + t * 55);
-  return `color-mix(in srgb, var(--brand) ${pct}%, var(--surface-subtle))`;
+/** Distinct hues per part; rectangle size still encodes claim count. */
+const PART_FILL_PALETTE = [
+  "#0d9488",
+  "#6366f1",
+  "#d97706",
+  "#dc2626",
+  "#7c3aed",
+  "#059669",
+  "#ea580c",
+  "#2563eb",
+  "#db2777",
+  "#65a30d",
+  "#0891b2",
+  "#b45309",
+] as const;
+
+function fillForPartIndex(i: number): string {
+  return PART_FILL_PALETTE[i % PART_FILL_PALETTE.length];
 }
+
+/** WCAG relative luminance for #rrggbb — choose light vs dark label ink. */
+function relativeLuminance(hex: string): number {
+  const n = hex.replace("#", "");
+  if (n.length !== 6) return 0.5;
+  const r = parseInt(n.slice(0, 2), 16) / 255;
+  const g = parseInt(n.slice(2, 4), 16) / 255;
+  const b = parseInt(n.slice(4, 6), 16) / 255;
+  const lin = [r, g, b].map((c) =>
+    c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4,
+  );
+  return 0.2126 * lin[0]! + 0.7152 * lin[1]! + 0.0722 * lin[2]!;
+}
+
+function useLightInkForHex(hex: string): boolean {
+  return relativeLuminance(hex) < 0.42;
+}
+
+const INK_DARK = "#0c1419";
+const INK_DARK_MUTED = "#1a2832";
+const INK_LIGHT = "#ffffff";
+const INK_LIGHT_MUTED = "rgba(255,255,255,0.9)";
 
 function TreemapCell({
   node,
-  maxVal,
-  onPartClick,
+  colorByName,
 }: {
   node: TreemapNode;
-  maxVal: number;
-  onPartClick: (part: string) => void;
+  colorByName: Map<string, string>;
 }) {
   const { x, y, width, height, name, value } = node;
   const v = typeof value === "number" ? value : Number(value ?? 0);
-  const fill = intensityFill(v, maxVal);
-  const showLabel = width > 48 && height > 28;
   const label = String(name ?? "");
+  const fill = colorByName.get(label) ?? fillForPartIndex(0);
+  const lightInk = useLightInkForHex(fill);
+  const primaryFill = lightInk ? INK_LIGHT : INK_DARK;
+  const secondaryFill = lightInk ? INK_LIGHT_MUTED : INK_DARK_MUTED;
+  const showPartLabel = width > 36 && height > 20;
+  const showCount = showPartLabel && height > 32;
+  const titleAttr = `${label}: ${v} claim(s)`;
 
   return (
     <g>
+      <title>{titleAttr}</title>
       <Rectangle
         x={x}
         y={y}
@@ -53,15 +89,14 @@ function TreemapCell({
         strokeWidth={2}
         rx={4}
         ry={4}
-        style={{ cursor: "pointer" }}
-        onClick={() => onPartClick(label)}
+        style={{ cursor: "default" }}
       />
-      {showLabel ? (
+      {showPartLabel ? (
         <text
           x={x + width / 2}
-          y={y + height / 2 - 4}
+          y={y + height / 2 - (showCount ? 4 : 0)}
           textAnchor="middle"
-          fill="var(--text-primary)"
+          fill={primaryFill}
           fontSize={width > 90 ? 12 : 10}
           fontWeight={600}
           style={{ pointerEvents: "none" }}
@@ -69,13 +104,14 @@ function TreemapCell({
           {label.length > 14 ? `${label.slice(0, 12)}…` : label}
         </text>
       ) : null}
-      {showLabel && height > 36 ? (
+      {showCount ? (
         <text
           x={x + width / 2}
           y={y + height / 2 + 10}
           textAnchor="middle"
-          fill="var(--text-secondary)"
+          fill={secondaryFill}
           fontSize={10}
+          fontWeight={600}
           style={{ pointerEvents: "none" }}
         >
           {v}
@@ -114,10 +150,16 @@ function TreeTooltip({
   );
 }
 
-export function RecurringPartsTreemap({ rows, maxShown = 12, timeRange }: Props) {
-  const router = useRouter();
+export function RecurringPartsTreemap({ rows, maxShown = 12 }: Props) {
   const shown = useMemo(() => rows.slice(0, maxShown), [rows, maxShown]);
-  const maxVal = useMemo(() => Math.max(1, ...shown.map((r) => r.count)), [shown]);
+
+  const colorByName = useMemo(() => {
+    const m = new Map<string, string>();
+    shown.forEach((r, i) => {
+      m.set(r.part_number, fillForPartIndex(i));
+    });
+    return m;
+  }, [shown]);
 
   const data = useMemo(
     () =>
@@ -129,25 +171,11 @@ export function RecurringPartsTreemap({ rows, maxShown = 12, timeRange }: Props)
     [shown],
   );
 
-  const onPartClick = useCallback(
-    (partKey: string) => {
-      const p = new URLSearchParams();
-      p.set("filter", "recurring_part");
-      p.set("part", partKey);
-      if (timeRange) {
-        p.set("from", timeRange.from);
-        p.set("to", timeRange.to);
-      }
-      router.push(`/rd?${p.toString()}`);
-    },
-    [router, timeRange],
-  );
-
   const renderContent = useCallback(
     (nodeProps: TreemapNode) => (
-      <TreemapCell node={nodeProps} maxVal={maxVal} onPartClick={onPartClick} />
+      <TreemapCell node={nodeProps} colorByName={colorByName} />
     ),
-    [maxVal, onPartClick],
+    [colorByName],
   );
 
   if (!shown.length) {

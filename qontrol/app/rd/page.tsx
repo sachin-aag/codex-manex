@@ -2,6 +2,7 @@ import { RdPortfolio } from "@/components/rd/rd-portfolio";
 import {
   lastNDaysRangeUtc,
   parseRangeFromSearchParams,
+  previousUtcRangeInclusive,
   utcBoundsFromDays,
   type UtcDay,
   type UtcRange,
@@ -12,6 +13,7 @@ import {
   fetchDefectsForRd,
   listRecentRdDecisions,
 } from "@/lib/db/rd";
+import { fetchInitiatives } from "@/lib/portfolio-data";
 
 export const dynamic = "force-dynamic";
 
@@ -64,17 +66,23 @@ export default async function RdHomePage({ searchParams }: PageProps) {
         c.lastUpdateAt >= effectiveRange.startIso && c.lastUpdateAt <= effectiveRange.endIso,
     );
 
-    const [claims, defects, recentDecisions] = await Promise.all([
+    const prevRange = previousUtcRangeInclusive(effectiveRange);
+
+    const [claims, defects, recentDecisions, claimsPrevious, initiatives] = await Promise.all([
       fetchClaimsForRd(200, effectiveRange),
       fetchDefectsForRd(300, effectiveRange),
       listRecentRdDecisions(10, effectiveRange),
+      fetchClaimsForRd(2000, prevRange),
+      fetchInitiatives(effectiveRange),
     ]);
 
     return (
       <RdPortfolio
         cases={cases}
         claims={claims}
+        claimsPrevious={claimsPrevious}
         defects={defects}
+        initiatives={initiatives}
         recentDecisions={recentDecisions}
         filter={sp.filter ?? null}
         part={sp.part ?? null}
