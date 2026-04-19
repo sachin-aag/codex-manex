@@ -457,6 +457,27 @@ button {
   font-size: 12px;
 }
 
+.focused-nav-arrow {
+  background: none;
+  border: none;
+  padding: 4px;
+  font-size: 18px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+
+.focused-nav-arrow:hover {
+  color: var(--text-primary);
+}
+
+.focused-nav-arrow:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand) 45%, white);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .focused-kanban-cards {
   flex: 1;
   overflow-y: auto;

@@ -475,7 +475,7 @@ export function QontrolApp() {
               <div className="focused-kanban-nav">
                 <button
                   aria-label="Previous category"
-                  className="icon-close-button"
+                  className="focused-nav-arrow"
                   onClick={() => cycleFocusedCategory(-1)}
                   type="button"
                 >
@@ -492,7 +492,7 @@ export function QontrolApp() {
                 </div>
                 <button
                   aria-label="Next category"
-                  className="icon-close-button"
+                  className="focused-nav-arrow"
                   onClick={() => cycleFocusedCategory(1)}
                   type="button"
                 >
