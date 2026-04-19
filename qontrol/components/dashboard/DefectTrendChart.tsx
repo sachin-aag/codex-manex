@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { WeeklyTrendPoint } from "@/lib/portfolio-data";
+import { CHART_COLORS } from "@/lib/chart-theme";
 import {
   Bar,
   CartesianGrid,
@@ -93,7 +94,7 @@ export function DefectTrendChart({ data }: Props) {
             yAxisId="right"
             dataKey="products_built"
             name="Products built"
-            fill="var(--surface-muted)"
+            fill={CHART_COLORS.volumeBar}
             radius={[4, 4, 0, 0]}
           />
           <Line
@@ -101,18 +102,28 @@ export function DefectTrendChart({ data }: Props) {
             type="monotone"
             dataKey="defect_count"
             name="Defects"
-            stroke="var(--danger)"
-            strokeWidth={2}
-            dot={{ r: 3 }}
+            stroke={CHART_COLORS.defectLine}
+            strokeWidth={2.5}
+            dot={{
+              r: 4,
+              fill: CHART_COLORS.pointFill,
+              stroke: CHART_COLORS.defectLine,
+              strokeWidth: 2,
+            }}
           />
           <Line
             yAxisId="left"
             type="monotone"
             dataKey="claim_count"
             name="Field claims (claim intake week)"
-            stroke="var(--warning)"
-            strokeWidth={2}
-            dot={{ r: 3 }}
+            stroke={CHART_COLORS.claimLine}
+            strokeWidth={2.5}
+            dot={{
+              r: 4,
+              fill: CHART_COLORS.pointFill,
+              stroke: CHART_COLORS.claimLine,
+              strokeWidth: 2,
+            }}
           />
         </ComposedChart>
       </ResponsiveContainer>

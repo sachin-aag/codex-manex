@@ -1,6 +1,7 @@
 "use client";
 
 import type { ClaimScatterPoint } from "@/lib/portfolio-data";
+import { CHART_SERIES } from "@/lib/chart-theme";
 import {
   CartesianGrid,
   ResponsiveContainer,
@@ -14,14 +15,6 @@ import {
 type Props = {
   data: ClaimScatterPoint[];
 };
-
-const COLORS = [
-  "var(--brand)",
-  "var(--danger)",
-  "var(--warning)",
-  "#5a6f83",
-  "#0b706f",
-];
 
 function ScatterTooltip({
   active,
@@ -50,7 +43,7 @@ export function ClaimLagScatter({ data }: Props) {
   const articles = Array.from(new Set(data.map((d) => d.article_name)));
   const byArticle = articles.map((name, i) => ({
     name,
-    color: COLORS[i % COLORS.length],
+    color: CHART_SERIES[i % CHART_SERIES.length],
     points: data.filter((d) => d.article_name === name),
   }));
 

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
@@ -38,8 +37,8 @@ import type {
   AnomalyCandidate,
   PastDecisionWithImpact,
 } from "@/lib/portfolio-insights/context";
-
-import { InsightsChatPanel } from "@/components/insights-chat-panel";
+import { CHART_COLORS, CHART_SERIES } from "@/lib/chart-theme";
+import { openInsightsChat } from "@/lib/client/insights-chat";
 
 type Toast = { kind: "success" | "error"; text: string } | null;
 
@@ -55,7 +54,6 @@ export default function PortfolioInsightsPage() {
   const [creatingFor, setCreatingFor] = useState<string | null>(null);
   const [deckFor, setDeckFor] = useState<string | null>(null);
   const [loggedInitiativeIds, setLoggedInitiativeIds] = useState<Record<string, string>>({});
-  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -191,9 +189,6 @@ export default function PortfolioInsightsPage() {
               {payload.mode === "llm" ? `LLM \u00B7 ${payload.model ?? "gpt"}` : "Heuristic fallback"}
             </span>
           ) : null}
-          <Link href="/portfolio" className="ghost-button" style={{ textDecoration: "none" }}>
-            ← Portfolio
-          </Link>
         </div>
       </section>
 
@@ -249,7 +244,7 @@ export default function PortfolioInsightsPage() {
 
       <button
         type="button"
-        onClick={() => setChatOpen(true)}
+        onClick={openInsightsChat}
         aria-label="Open insights chat"
         style={{
           position: "fixed",
@@ -265,7 +260,7 @@ export default function PortfolioInsightsPage() {
           fontSize: 13,
           fontWeight: 600,
           zIndex: 900,
-          display: chatOpen ? "none" : "flex",
+          display: "flex",
           gap: 8,
           alignItems: "center",
         }}
@@ -273,11 +268,6 @@ export default function PortfolioInsightsPage() {
         <span style={{ width: 8, height: 8, borderRadius: 999, background: "var(--success)" }} />
         Ask the agent
       </button>
-
-      <InsightsChatPanel
-        open={chatOpen}
-        onClose={() => setChatOpen(false)}
-      />
 
       {toast ? (
         <div
@@ -584,9 +574,9 @@ function CostReadout({
 }
 
 const COST_COLORS = {
-  defects: "#d97706",
-  claims: "#b91c1c",
-  rework: "#6366f1",
+  defects: CHART_COLORS.barPrimary,
+  claims: CHART_COLORS.defectLine,
+  rework: CHART_SERIES[3],
 };
 
 function CostRibbonBreakdownChart({
@@ -644,12 +634,12 @@ function CostRibbonBreakdownChart({
           {octBaseline > 0 ? (
             <ReferenceLine
               y={octBaseline}
-              stroke="var(--text-muted)"
+              stroke={CHART_COLORS.referenceLine}
               strokeDasharray="4 4"
               label={{
                 value: `Oct baseline ${formatUsd(octBaseline)}`,
                 position: "insideTopRight",
-                fill: "var(--text-muted)",
+                fill: CHART_COLORS.referenceLine,
                 fontSize: 11,
               }}
             />

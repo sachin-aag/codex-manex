@@ -83,7 +83,7 @@ export function PortfolioTimeRange({
 
   const onCustomSegment = useCallback(() => {
     setExplicitCustom(true);
-    const raw = rangeValue ?? lastNDaysRangeUtc(7);
+    const raw = rangeValue ?? previousCalendarMonthRangeUtc();
     setCustomFrom(raw.from);
     setCustomTo(raw.to);
   }, [rangeValue]);

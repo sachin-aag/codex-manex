@@ -1,5 +1,6 @@
 "use client";
 
+import type { RefObject } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -123,12 +124,23 @@ const deptNav: NavItem[] = [
 ];
 
 type SidebarProps = {
+  containerRef?: RefObject<HTMLElement | null>;
   collapsed: boolean;
   onToggle: () => void;
+  onOpenInsightsChat: () => void;
+  insightsChatOpen: boolean;
 };
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({
+  containerRef,
+  collapsed,
+  onToggle,
+  onOpenInsightsChat,
+  insightsChatOpen,
+}: SidebarProps) {
   const pathname = usePathname();
+  const showInsightsChat =
+    pathname === "/portfolio/learnings" || pathname.startsWith("/portfolio/learnings/");
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
@@ -140,7 +152,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   }
 
   return (
-    <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
+    <aside ref={containerRef} className={`sidebar ${collapsed ? "collapsed" : ""}`}>
       <div className="sidebar-top">
         <div className="sidebar-brand">
           <div className="sidebar-logo">Q</div>
@@ -226,6 +238,38 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         )}
       </nav>
 
+      {showInsightsChat ? (
+        <div className="sidebar-footer">
+          <button
+            type="button"
+            className="sidebar-assistant-button"
+            onClick={onOpenInsightsChat}
+            aria-pressed={insightsChatOpen}
+            title={collapsed ? "Open portfolio insights copilot" : undefined}
+          >
+            <span className="sidebar-assistant-button-icon" aria-hidden="true">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 3c4.97 0 9 3.58 9 8s-4.03 8-9 8c-.7 0-1.39-.07-2.06-.22L4 21l1.53-4.08C4.56 15.5 3 13.4 3 11c0-4.42 4.03-8 9-8Z" />
+                <path d="M9 11h6" />
+                <path d="M12 8v6" />
+              </svg>
+            </span>
+            <span className="sidebar-assistant-button-copy">
+              <strong>Insights copilot</strong>
+              <small>{insightsChatOpen ? "Open now" : "Ask with charts + SQL"}</small>
+            </span>
+          </button>
+        </div>
+      ) : null}
     </aside>
   );
 }

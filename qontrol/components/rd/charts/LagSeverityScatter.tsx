@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { CHART_SERIES } from "@/lib/chart-theme";
 import type { ClaimLagRow } from "@/lib/db/rd";
 import type { QontrolCase, Severity } from "@/lib/qontrol-data";
 
@@ -23,15 +24,6 @@ type Point = {
   articleName: string;
   severity: Severity;
 };
-
-const COLORS = [
-  "var(--brand)",
-  "var(--danger)",
-  "var(--warning)",
-  "#5a6f83",
-  "#0b706f",
-  "#1a8d55",
-];
 
 const LEGEND_MAX = 8;
 
@@ -123,7 +115,7 @@ export function LagSeverityScatter({ claims, cases }: Props) {
   const byPart = useMemo(() => {
     return parts.map((name, i) => ({
       name,
-      color: COLORS[i % COLORS.length],
+      color: CHART_SERIES[i % CHART_SERIES.length],
       data: points.filter((p) => p.part === name),
     }));
   }, [parts, points]);

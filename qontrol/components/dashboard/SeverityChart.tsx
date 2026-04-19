@@ -1,6 +1,7 @@
 "use client";
 
 import type { SeverityStackRow, SeverityTotals } from "@/lib/portfolio-data";
+import { SEVERITY_COLORS } from "@/lib/chart-theme";
 import {
   Bar,
   BarChart,
@@ -16,14 +17,6 @@ type Props = {
   data: SeverityStackRow[];
   /** Optional global counts across all defects (for comparison with stacked-by-section view). */
   globalTotals?: SeverityTotals;
-};
-
-const COLORS = {
-  low: "#71808e",
-  medium: "#b66a00",
-  high: "#c45c1a",
-  critical: "#bf3f35",
-  other: "#c3ced7",
 };
 
 function formatGlobalTotals(g: SeverityTotals): string {
@@ -83,11 +76,21 @@ export function SeverityChart({ data, globalTotals }: Props) {
             }}
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Bar dataKey="low" stackId="a" name="Low" fill={COLORS.low} />
-          <Bar dataKey="medium" stackId="a" name="Medium" fill={COLORS.medium} />
-          <Bar dataKey="high" stackId="a" name="High" fill={COLORS.high} />
-          <Bar dataKey="critical" stackId="a" name="Critical" fill={COLORS.critical} />
-          <Bar dataKey="other" stackId="a" name="Other" fill={COLORS.other} />
+          <Bar dataKey="low" stackId="a" name="Low" fill={SEVERITY_COLORS.low} />
+          <Bar
+            dataKey="medium"
+            stackId="a"
+            name="Medium"
+            fill={SEVERITY_COLORS.medium}
+          />
+          <Bar dataKey="high" stackId="a" name="High" fill={SEVERITY_COLORS.high} />
+          <Bar
+            dataKey="critical"
+            stackId="a"
+            name="Critical"
+            fill={SEVERITY_COLORS.critical}
+          />
+          <Bar dataKey="other" stackId="a" name="Other" fill={SEVERITY_COLORS.other} />
         </BarChart>
       </ResponsiveContainer>
     </div>

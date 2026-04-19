@@ -1,7 +1,7 @@
 import { RdPortfolio } from "@/components/rd/rd-portfolio";
 import {
-  lastNDaysRangeUtc,
   parseRangeFromSearchParams,
+  previousCalendarMonthRangeUtc,
   utcBoundsFromDays,
   type UtcDay,
   type UtcRange,
@@ -41,16 +41,18 @@ export default async function RdHomePage({ searchParams }: PageProps) {
           <p style={{ color: "var(--danger)" }}>{parsed.error}</p>
           <p style={{ color: "var(--text-secondary)", marginTop: 8 }}>
             Use <code className="kpi-code">from</code> and <code className="kpi-code">to</code> as{" "}
-            YYYY-MM-DD, or remove both for the default (last 7 days).
+            YYYY-MM-DD, or remove both for the default (last month).
           </p>
         </div>
       </main>
     );
   }
 
-  const seven = lastNDaysRangeUtc(7);
+  const previousMonth = previousCalendarMonthRangeUtc();
   const effectiveRange: UtcRange =
-    parsed.range === null ? toUtcRange(seven.from, seven.to) : parsed.range;
+    parsed.range === null
+      ? toUtcRange(previousMonth.from, previousMonth.to)
+      : parsed.range;
 
   try {
     const snapshot = await getRdPortfolioSnapshot(effectiveRange);

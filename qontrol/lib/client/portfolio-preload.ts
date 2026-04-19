@@ -1,5 +1,5 @@
 import type { DashboardKpis } from "@/lib/db/kpis";
-import { lastNDaysRangeUtc } from "@/lib/date-range";
+import { previousCalendarMonthRangeUtc } from "@/lib/date-range";
 import type {
   BatchRankingRow,
   ClaimLagRow,
@@ -43,7 +43,8 @@ type CacheEntry = {
 
 const CACHE_TTL_MS = 60_000;
 
-export const DEFAULT_PORTFOLIO_RANGE: PortfolioRange = lastNDaysRangeUtc(7);
+export const DEFAULT_PORTFOLIO_RANGE: PortfolioRange =
+  previousCalendarMonthRangeUtc();
 
 const portfolioCache = new Map<string, CacheEntry>();
 

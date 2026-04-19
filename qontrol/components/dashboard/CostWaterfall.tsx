@@ -1,6 +1,7 @@
 "use client";
 
 import type { CostBreakdownData } from "@/lib/portfolio-data";
+import { CHART_COLORS } from "@/lib/chart-theme";
 import {
   Bar,
   BarChart,
@@ -57,7 +58,12 @@ export function CostWaterfall({ data }: Props) {
                   fontSize: 12,
                 }}
               />
-              <Bar dataKey="amount" name="Cost" fill="var(--brand)" radius={[6, 6, 0, 0]} />
+              <Bar
+                dataKey="amount"
+                name="Cost"
+                fill={CHART_COLORS.barPrimary}
+                radius={[6, 6, 0, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -91,7 +97,12 @@ export function CostWaterfall({ data }: Props) {
                   }}
                 />
                 <Legend />
-                <Bar dataKey="amount" name="Cost" fill="var(--danger)" radius={[0, 4, 4, 0]} />
+                <Bar
+                  dataKey="amount"
+                  name="Cost"
+                  fill={CHART_COLORS.barSecondary}
+                  radius={[0, 4, 4, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>

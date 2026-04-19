@@ -1,0 +1,106 @@
+<svg width="1400" height="820" viewBox="0 0 1400 820" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="qontrolGradient" x1="540" y1="230" x2="860" y2="590" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="ringGradient" x1="240" y1="410" x2="1160" y2="410" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="0.5" stop-color="#14B8A6"/>
+      <stop offset="1" stop-color="#38BDF8"/>
+    </linearGradient>
+    <filter id="softShadow" x="0" y="0" width="1400" height="820" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="22" stdDeviation="26" flood-color="#0F172A" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect width="1400" height="820" rx="32" fill="#F8FAFC"/>
+  <text x="700" y="92" text-anchor="middle" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="700">Qontrol ecosystem</text>
+  <text x="700" y="126" text-anchor="middle" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="20">One QM control layer connected to the tools every team already uses</text>
+
+  <circle cx="700" cy="410" r="258" stroke="url(#ringGradient)" stroke-width="3" stroke-dasharray="4 14" opacity="0.45"/>
+
+  <path d="M700 410 L700 184" stroke="#0EA5E9" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 10"/>
+  <path d="M700 410 L920 250" stroke="#0EA5E9" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 10"/>
+  <path d="M700 410 L980 410" stroke="#0EA5E9" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 10"/>
+  <path d="M700 410 L920 570" stroke="#0EA5E9" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 10"/>
+  <path d="M700 410 L700 636" stroke="#0EA5E9" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 10"/>
+  <path d="M700 410 L480 570" stroke="#0EA5E9" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 10"/>
+  <path d="M700 410 L420 410" stroke="#0EA5E9" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 10"/>
+  <path d="M700 410 L480 250" stroke="#0EA5E9" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 10"/>
+
+  <g filter="url(#softShadow)">
+    <circle cx="700" cy="410" r="150" fill="white"/>
+    <circle cx="700" cy="410" r="126" fill="url(#qontrolGradient)"/>
+    <rect x="650" y="354" width="100" height="100" rx="26" fill="white" fill-opacity="0.12"/>
+    <path d="M697 344C670.49 344 649 365.49 649 392C649 418.51 670.49 440 697 440C711.055 440 723.71 433.957 732.481 424.332L717.828 409.68C713.116 414.839 705.614 418.065 697.352 418.065C683.429 418.065 672.161 406.797 672.161 392.874C672.161 378.952 683.429 367.683 697.352 367.683C711.274 367.683 722.543 378.952 722.543 392.874V397.972H695.944V419.421H745V392.874C745 365.49 723.51 344 697 344Z" fill="white"/>
+    <text x="700" y="492" text-anchor="middle" fill="white" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">Qontrol</text>
+    <text x="700" y="521" text-anchor="middle" fill="#DBEAFE" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="500">Take Control of Quality.</text>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <circle cx="700" cy="184" r="82" fill="white"/>
+    <circle cx="700" cy="154" r="26" fill="#0F766E"/>
+    <text x="700" y="162" text-anchor="middle" fill="white" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700">ERP</text>
+    <text x="700" y="210" text-anchor="middle" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">ERP</text>
+    <text x="700" y="238" text-anchor="middle" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="16">Supply chain</text>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <circle cx="920" cy="250" r="82" fill="white"/>
+    <circle cx="920" cy="220" r="26" fill="#0052CC"/>
+    <text x="920" y="229" text-anchor="middle" fill="white" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">J</text>
+    <text x="920" y="276" text-anchor="middle" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">Jira</text>
+    <text x="920" y="304" text-anchor="middle" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="16">R&amp;D</text>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <circle cx="980" cy="410" r="82" fill="white"/>
+    <circle cx="980" cy="380" r="26" fill="#111827"/>
+    <path d="M968 389C968 379.611 975.611 372 985 372C988.649 372 991.992 373.135 994.729 375.065C991.501 374.907 988.41 376.189 986.355 378.572C984.299 380.955 983.519 384.157 984.251 387.219C979.838 386.933 975.85 384.79 973.203 381.381C972.42 382.719 972.007 384.237 972.007 385.783C972.007 388.848 973.568 391.555 975.941 393.136C973.313 393.052 970.86 392.336 968.713 391.138V391.291C968.713 395.574 971.76 399.149 975.806 399.963C974.464 400.328 973.062 400.383 971.697 400.123C972.84 403.691 976.158 406.283 980.083 406.355C977.013 408.761 973.224 410.069 969.324 410.067C968.216 410.067 967.122 410.002 966.045 409.874C970.037 412.434 974.712 413.939 979.74 413.939C994.583 413.939 1002.7 401.643 1002.7 390.981C1002.7 390.629 1002.69 390.278 1002.68 389.928C1004.26 388.785 1005.62 387.352 1006.69 385.706C1005.24 386.35 1003.68 386.786 1002.07 387.004C1003.71 386.019 1004.96 384.457 1005.55 382.609C1004.01 383.521 1002.32 384.183 1000.54 384.564C999.088 383.015 997.042 382.034 994.768 382.034C990.356 382.034 986.78 385.61 986.78 390.022C986.78 390.647 986.849 391.257 986.985 391.844C980.366 391.513 974.5 388.343 970.572 383.528C969.887 384.704 969.487 386.073 969.487 387.535C969.487 390.303 970.896 392.747 973.038 394.177C971.728 394.135 970.491 393.776 969.404 393.171V393.271C969.404 397.138 972.153 400.368 975.8 401.1C974.579 401.432 973.297 401.483 972.054 401.249C973.068 404.413 975.997 406.716 979.463 406.779C976.751 408.901 973.399 410.058 969.945 410.056C969.281 410.056 968.626 410.017 967.979 409.94C971.482 412.195 975.654 413.513 980.133 413.513" fill="white"/>
+    <text x="980" y="436" text-anchor="middle" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">GitHub</text>
+    <text x="980" y="464" text-anchor="middle" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="16">R&amp;D</text>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <circle cx="920" cy="570" r="82" fill="white"/>
+    <circle cx="920" cy="540" r="26" fill="#7C3AED"/>
+    <text x="920" y="548" text-anchor="middle" fill="white" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">ADO</text>
+    <text x="920" y="596" text-anchor="middle" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">Azure DevOps</text>
+    <text x="920" y="624" text-anchor="middle" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="16">Engineering</text>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <circle cx="700" cy="636" r="82" fill="white"/>
+    <circle cx="672" cy="604" r="23" fill="#1D4ED8"/>
+    <text x="672" y="612" text-anchor="middle" fill="white" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">M</text>
+    <circle cx="728" cy="604" r="23" fill="#0F766E"/>
+    <text x="728" y="612" text-anchor="middle" fill="white" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">Q</text>
+    <text x="700" y="662" text-anchor="middle" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">MES / QMS</text>
+    <text x="700" y="690" text-anchor="middle" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="16">Manufacturing</text>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <circle cx="480" cy="570" r="82" fill="white"/>
+    <circle cx="480" cy="540" r="26" fill="#16A34A"/>
+    <text x="480" y="548" text-anchor="middle" fill="white" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">Z</text>
+    <text x="480" y="596" text-anchor="middle" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">Zendesk</text>
+    <text x="480" y="624" text-anchor="middle" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="16">Customer support</text>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <circle cx="420" cy="410" r="82" fill="white"/>
+    <circle cx="420" cy="380" r="26" fill="#EA580C"/>
+    <text x="420" y="388" text-anchor="middle" fill="white" font-family="Inter, Arial, sans-serif" font-size="19" font-weight="700">SF</text>
+    <text x="420" y="436" text-anchor="middle" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">Salesforce</text>
+    <text x="420" y="464" text-anchor="middle" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="16">Customer support</text>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <circle cx="480" cy="250" r="82" fill="white"/>
+    <circle cx="480" cy="220" r="26" fill="#334155"/>
+    <text x="480" y="228" text-anchor="middle" fill="white" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700">SP</text>
+    <text x="480" y="276" text-anchor="middle" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">Supplier portal</text>
+    <text x="480" y="304" text-anchor="middle" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="16">Supply chain</text>
+  </g>
+</svg>

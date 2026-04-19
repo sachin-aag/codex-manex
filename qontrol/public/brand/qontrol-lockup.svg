@@ -1,0 +1,14 @@
+<svg width="720" height="180" viewBox="0 0 720 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="brandGradient" x1="32" y1="20" x2="148" y2="156" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#1D4ED8"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="720" height="180" rx="24" fill="#F8FAFC"/>
+  <rect x="36" y="30" width="120" height="120" rx="28" fill="url(#brandGradient)"/>
+  <path d="M96 61C71.6995 61 52 80.6995 52 105C52 129.301 71.6995 149 96 149C108.885 149 120.488 143.459 128.533 134.627L115.092 121.186C110.771 125.918 103.89 128.877 96.3231 128.877C83.5739 128.877 73.2404 118.543 73.2404 105.794C73.2404 93.0447 83.5739 82.7111 96.3231 82.7111C109.072 82.7111 119.406 93.0447 119.406 105.794V110.462H95.0459V130.085H139.984V105.794C139.984 80.6995 120.301 61 96 61Z" fill="white"/>
+  <text x="188" y="86" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="52" font-weight="700">Qontrol</text>
+  <text x="188" y="126" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="500">Take Control of Quality.</text>
+</svg>

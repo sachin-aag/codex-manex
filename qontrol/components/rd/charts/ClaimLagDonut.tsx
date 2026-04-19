@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { DONUT_BUCKET_COLORS } from "@/lib/chart-theme";
 import {
   Cell,
   Legend,
@@ -11,13 +12,6 @@ import {
 } from "recharts";
 
 type BucketRow = { bucket: string; count: number; fcIds: string[] };
-
-const COLORS = [
-  "var(--success)",
-  "#c9a227",
-  "#e67700",
-  "var(--danger)",
-];
 
 type Props = {
   buckets: BucketRow[];
@@ -30,7 +24,7 @@ export function ClaimLagDonut({ buckets, total }: Props) {
       buckets.map((b, i) => ({
         name: b.bucket,
         value: b.count,
-        color: COLORS[i % COLORS.length],
+        color: DONUT_BUCKET_COLORS[i % DONUT_BUCKET_COLORS.length],
       })),
     [buckets],
   );

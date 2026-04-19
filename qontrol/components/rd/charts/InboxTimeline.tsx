@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { SEVERITY_COLORS } from "@/lib/chart-theme";
 import {
   CartesianGrid,
   ResponsiveContainer,
@@ -24,9 +25,9 @@ type Point = {
 };
 
 const SEVERITY_COLOR: Record<Severity, string> = {
-  low: "var(--success)",
-  medium: "var(--warning)",
-  high: "var(--danger)",
+  low: SEVERITY_COLORS.low,
+  medium: SEVERITY_COLORS.medium,
+  high: SEVERITY_COLORS.critical,
 };
 
 function TimelineTooltip({

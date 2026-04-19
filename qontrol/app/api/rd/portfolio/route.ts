@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
 import {
-  lastNDaysRangeUtc,
   parseRangeFromSearchParams,
+  previousCalendarMonthRangeUtc,
   utcBoundsFromDays,
   type UtcDay,
   type UtcRange,
@@ -23,9 +23,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    const sevenDayRange = lastNDaysRangeUtc(7);
+    const previousMonthRange = previousCalendarMonthRangeUtc();
     const effectiveRange =
-      parsed.range ?? toUtcRange(sevenDayRange.from, sevenDayRange.to);
+      parsed.range ??
+      toUtcRange(previousMonthRange.from, previousMonthRange.to);
     const snapshot = await getRdPortfolioSnapshot(effectiveRange);
 
     return NextResponse.json(snapshot);

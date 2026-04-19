@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { ParetoRow } from "@/lib/portfolio-data";
+import { CHART_COLORS } from "@/lib/chart-theme";
 import {
   Bar,
   CartesianGrid,
@@ -104,7 +105,7 @@ export function ParetoChart({ data }: Props) {
             xAxisId="count"
             dataKey="count"
             name="Count"
-            fill="var(--brand)"
+            fill={CHART_COLORS.barPrimary}
             radius={[0, 4, 4, 0]}
           />
           <Line
@@ -112,17 +113,27 @@ export function ParetoChart({ data }: Props) {
             type="linear"
             dataKey="cumulative"
             name="Cumulative %"
-            stroke="var(--danger)"
-            strokeWidth={2}
-            dot={{ r: 3 }}
+            stroke={CHART_COLORS.cumulativeLine}
+            strokeWidth={2.5}
+            dot={{
+              r: 4,
+              fill: CHART_COLORS.pointFill,
+              stroke: CHART_COLORS.cumulativeLine,
+              strokeWidth: 2,
+            }}
             isAnimationActive={false}
           />
           <ReferenceLine
             xAxisId="pct"
             x={80}
-            stroke="var(--text-muted)"
+            stroke={CHART_COLORS.referenceLine}
             strokeDasharray="4 4"
-            label={{ value: "80%", position: "top", fill: "var(--text-muted)", fontSize: 11 }}
+            label={{
+              value: "80%",
+              position: "top",
+              fill: CHART_COLORS.referenceLine,
+              fontSize: 11,
+            }}
           />
         </ComposedChart>
       </ResponsiveContainer>
