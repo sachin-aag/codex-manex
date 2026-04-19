@@ -1993,7 +1993,7 @@ function buildTraceabilityWidget(params: {
   return {
     title: "Traceability tree",
     summary:
-      "Schema-driven lineage from supplier and BOM placement through build, discovery, measurement, and downstream impact.",
+      "Schema-driven lineage from supplier lot and BOM slot through build, discovery, measured deviation, and downstream impact for the unit under review.",
     mermaid: buildTraceabilityMermaid({
       supplierName,
       batchId,

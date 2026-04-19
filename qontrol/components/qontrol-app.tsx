@@ -191,7 +191,7 @@ export function QontrolApp() {
   const usesComplaintSimilarity = selectedCase?.sourceType === "claim";
   const similarPanelTitle = usesComplaintSimilarity ? "Similar claims" : "Similar tickets";
   const similarPanelDescription = usesComplaintSimilarity
-    ? "Top complaint-text matches generated in real time from other claim records."
+    ? "Top complaint-text matches generated using LLM embeddings of complaint text."
     : "Operationally useful matches, not just semantic similarity.";
   const aiGeneratedLearning = selectedCase
     ? buildAiGeneratedLearning(similarTickets, selectedCase.defectType)
