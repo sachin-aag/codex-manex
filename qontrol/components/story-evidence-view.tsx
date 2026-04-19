@@ -1,19 +1,8 @@
 "use client";
 
 import type { QontrolCase, StoryMatrixCell } from "@/lib/qontrol-data";
-import { ClaimLagScatter } from "@/components/dashboard/ClaimLagScatter";
-import { SectionHeatmap } from "@/components/dashboard/SectionHeatmap";
-import {
-  Bar,
-  CartesianGrid,
-  ComposedChart,
-  Legend,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+
+import { StoryEvidenceGraph } from "@/components/story-evidence-graph";
 
 type Props = {
   visualization: QontrolCase["visualization"];
@@ -26,25 +15,6 @@ type SignalTrendRow = {
   failCount: number;
   marginalCount: number;
   highlight?: boolean;
-};
-
-type DiagramNodeTone = "accent" | "neutral" | "warning" | "danger" | "success";
-
-type DiagramNode = {
-  id: string;
-  title: string;
-  value: string;
-  x: number;
-  y: number;
-  width?: number;
-  height?: number;
-  tone?: DiagramNodeTone;
-};
-
-type DiagramLink = {
-  from: string;
-  to: string;
-  label?: string;
 };
 
 function formatShare(value: number) {
@@ -61,146 +31,6 @@ function outcomeCount(
   label: string,
 ) {
   return points.find((point) => point.label === label)?.count ?? 0;
-}
-
-function FlowDiagramText({
-  x,
-  y,
-  width,
-  title,
-  value,
-}: {
-  x: number;
-  y: number;
-  width: number;
-  title: string;
-  value: string;
-}) {
-  const titleLines = title.split("\n");
-  const valueLines = value.split("\n");
-
-  return (
-    <>
-      {titleLines.map((line, index) => (
-        <text
-          key={`title-${line}-${index}`}
-          x={x + width / 2}
-          y={y + 22 + index * 14}
-          textAnchor="middle"
-          className="story-diagram-title"
-        >
-          {line}
-        </text>
-      ))}
-      {valueLines.map((line, index) => (
-        <text
-          key={`value-${line}-${index}`}
-          x={x + width / 2}
-          y={y + 48 + titleLines.length * 10 + index * 18}
-          textAnchor="middle"
-          className="story-diagram-value"
-        >
-          {line}
-        </text>
-      ))}
-    </>
-  );
-}
-
-function FlowDiagram({
-  nodes,
-  links,
-  height = 320,
-}: {
-  nodes: DiagramNode[];
-  links: DiagramLink[];
-  height?: number;
-}) {
-  const width = 1120;
-  const positions = new Map(
-    nodes.map((node) => [
-      node.id,
-      {
-        x: node.x,
-        y: node.y,
-        width: node.width ?? 176,
-        height: node.height ?? 78,
-      },
-    ]),
-  );
-
-  return (
-    <div className="story-diagram-shell">
-      <svg
-        className="story-diagram"
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-label="Causal evidence trail"
-      >
-        <defs>
-          <marker
-            id="storyArrow"
-            markerWidth="10"
-            markerHeight="10"
-            refX="8"
-            refY="5"
-            orient="auto"
-            markerUnits="strokeWidth"
-          >
-            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand-strong)" />
-          </marker>
-        </defs>
-        {links.map((link) => {
-          const from = positions.get(link.from);
-          const to = positions.get(link.to);
-          if (!from || !to) return null;
-          const startX = from.x + from.width;
-          const startY = from.y + from.height / 2;
-          const endX = to.x;
-          const endY = to.y + to.height / 2;
-          const controlOffset = Math.max(52, (endX - startX) * 0.45);
-          const path = `M ${startX} ${startY} C ${startX + controlOffset} ${startY}, ${endX - controlOffset} ${endY}, ${endX} ${endY}`;
-          const labelX = (startX + endX) / 2;
-          const labelY = (startY + endY) / 2 - 10;
-
-          return (
-            <g key={`${link.from}-${link.to}-${link.label ?? ""}`}>
-              <path d={path} className="story-diagram-link" markerEnd="url(#storyArrow)" />
-              {link.label ? (
-                <text x={labelX} y={labelY} textAnchor="middle" className="story-diagram-link-label">
-                  {link.label}
-                </text>
-              ) : null}
-            </g>
-          );
-        })}
-        {nodes.map((node) => {
-          const width = node.width ?? 176;
-          const height = node.height ?? 78;
-          return (
-            <g key={node.id}>
-              <rect
-                x={node.x}
-                y={node.y}
-                width={width}
-                height={height}
-                rx="20"
-                ry="20"
-                className={`story-diagram-node ${node.tone ?? "neutral"}`}
-              />
-              <FlowDiagramText
-                x={node.x}
-                y={node.y}
-                width={width}
-                title={node.title}
-                value={node.value}
-              />
-            </g>
-          );
-        })}
-      </svg>
-    </div>
-  );
 }
 
 function DistributionBars({
@@ -240,68 +70,25 @@ function DistributionBars({
   );
 }
 
-function SignalTrendChart({ data }: { data: SignalTrendRow[] }) {
+function SignalTimeline({ data }: { data: SignalTrendRow[] }) {
   if (!data.length) {
     return <p className="chart-empty">No weekly drift signal yet.</p>;
   }
 
   return (
-    <div className="recharts-host chart-plot story-trend-chart">
-      <ResponsiveContainer>
-        <ComposedChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-          <XAxis
-            dataKey="label"
-            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-            tickLine={{ stroke: "var(--border)" }}
-          />
-          <YAxis
-            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-            tickLine={{ stroke: "var(--border)" }}
-            allowDecimals={false}
-            label={{
-              value: "Signal count",
-              angle: -90,
-              position: "insideLeft",
-              fill: "var(--text-muted)",
-              fontSize: 11,
-            }}
-          />
-          <Tooltip
-            contentStyle={{
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              fontSize: 12,
-            }}
-          />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
-          <Bar
-            dataKey="defectCount"
-            name="VIB_FAIL defects"
-            fill="var(--brand)"
-            radius={[4, 4, 0, 0]}
-          />
-          <Line
-            type="monotone"
-            dataKey="marginalCount"
-            name="VIB_TEST marginal"
-            stroke="var(--warning)"
-            strokeWidth={2}
-            dot={{ r: 3 }}
-            isAnimationActive={false}
-          />
-          <Line
-            type="monotone"
-            dataKey="failCount"
-            name="VIB_TEST fail"
-            stroke="var(--danger)"
-            strokeWidth={2}
-            dot={{ r: 3 }}
-            isAnimationActive={false}
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
+    <div className="story-timeline-grid">
+      {data.map((point) => (
+        <article
+          className={`story-timeline-card ${point.highlight ? "highlight" : ""}`}
+          key={`${point.label}-${point.defectCount}-${point.failCount}-${point.marginalCount}`}
+        >
+          <span>{point.label}</span>
+          <strong>{point.defectCount} defect(s)</strong>
+          <p>
+            {point.failCount} fail / {point.marginalCount} marginal
+          </p>
+        </article>
+      ))}
     </div>
   );
 }
@@ -372,71 +159,39 @@ function HandlingMatrix({
   );
 }
 
+function StoryFacts({
+  evidenceTrail,
+  annotations,
+}: {
+  evidenceTrail: string[];
+  annotations: string[];
+}) {
+  return (
+    <div className="story-fact-block">
+      <h4>Supporting facts</h4>
+      <div className="story-fact-grid">
+        {evidenceTrail.map((item) => (
+          <div className="story-fact-chip" key={item}>
+            {shortEvidence(item)}
+          </div>
+        ))}
+      </div>
+      <ul className="bullet-list compact">
+        {annotations.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function StoryEvidenceView({ visualization, evidenceTrail }: Props) {
   if (visualization.kind === "supplier") {
-    const diagramNodes: DiagramNode[] = [
-      {
-        id: "batch",
-        title: "Supplier batch",
-        value: `${visualization.batchId}\n${visualization.supplierName}`,
-        x: 24,
-        y: 36,
-        tone: "accent",
-      },
-      {
-        id: "exposure",
-        title: "Exposure",
-        value: `${visualization.exposedProducts} products\nreceived in cohort`,
-        x: 24,
-        y: 132,
-      },
-      {
-        id: "tests",
-        title: "ESR signal",
-        value: `${outcomeCount(visualization.testOutcomes, "MARGINAL")} marginal / ${outcomeCount(visualization.testOutcomes, "FAIL")} fail`,
-        x: 24,
-        y: 228,
-        tone: "warning",
-      },
-      {
-        id: "cause",
-        title: "Pattern",
-        value: `Incoming material issue\n${visualization.batchId}`,
-        x: 340,
-        y: 126,
-        width: 208,
-        height: 92,
-        tone: "danger",
-      },
-      {
-        id: "defects",
-        title: "Factory signal",
-        value: `${visualization.steps.find((step) => step.label === "In-factory defects")?.value ?? "0"} SOLDER_COLD\ndefect events`,
-        x: 690,
-        y: 84,
-        tone: "accent",
-      },
-      {
-        id: "claims",
-        title: "Field impact",
-        value: `${visualization.steps.find((step) => step.label === "Field claims")?.value ?? "0"} claims\n4-8 week lag cluster`,
-        x: 916,
-        y: 168,
-        tone: "warning",
-      },
-    ];
-    const diagramLinks: DiagramLink[] = [
-      { from: "batch", to: "cause", label: "traceable" },
-      { from: "exposure", to: "cause", label: "installed into" },
-      { from: "tests", to: "cause", label: "supports" },
-      { from: "cause", to: "defects", label: "drives" },
-      { from: "defects", to: "claims", label: "escapes to field" },
-    ];
-
+    const graphKey = `${visualization.kind}:${visualization.batchId}:${visualization.supplierName}`;
     return (
       <div className="story-evidence-layout">
         <p className="story-visual-summary">{visualization.summary}</p>
-        <FlowDiagram nodes={diagramNodes} links={diagramLinks} />
+        <StoryEvidenceGraph key={graphKey} visualization={visualization} />
         <div className="story-kpi-grid">
           <div className="story-kpi-card">
             <span>Supplier</span>
@@ -467,21 +222,7 @@ export function StoryEvidenceView({ visualization, evidenceTrail }: Props) {
             />
           </section>
         </div>
-        <div className="story-fact-block">
-          <h4>Supporting facts</h4>
-          <div className="story-fact-grid">
-            {evidenceTrail.map((item) => (
-              <div className="story-fact-chip" key={item}>
-                {shortEvidence(item)}
-              </div>
-            ))}
-          </div>
-          <ul className="bullet-list compact">
-            {visualization.annotations.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
+        <StoryFacts evidenceTrail={evidenceTrail} annotations={visualization.annotations} />
       </div>
     );
   }
@@ -491,181 +232,53 @@ export function StoryEvidenceView({ visualization, evidenceTrail }: Props) {
       (a, b) =>
         b.defectCount + b.failCount + b.marginalCount - (a.defectCount + a.failCount + a.marginalCount),
     )[0];
-    const diagramNodes: DiagramNode[] = [
-      {
-        id: "section",
-        title: "Occurrence section",
-        value: visualization.section,
-        x: 24,
-        y: 40,
-        tone: "accent",
-      },
-      {
-        id: "testSignal",
-        title: "VIB_TEST signal",
-        value: `${peakPoint?.marginalCount ?? 0} marginal / ${peakPoint?.failCount ?? 0} fail`,
-        x: 24,
-        y: 136,
-        tone: "warning",
-      },
-      {
-        id: "noise",
-        title: "Noise filter",
-        value: `${visualization.filteredFalsePositives} false-positive\ninspection events removed`,
-        x: 24,
-        y: 232,
-      },
-      {
-        id: "cause",
-        title: "Pattern",
-        value: "Calibration drift\nat assembly step",
-        x: 348,
-        y: 126,
-        width: 216,
-        height: 92,
-        tone: "danger",
-      },
-      {
-        id: "spike",
-        title: "Spike",
-        value: `${peakPoint?.defectCount ?? 0} VIB_FAIL\nin peak week`,
-        x: 706,
-        y: 84,
-        tone: "accent",
-      },
-      {
-        id: "detection",
-        title: "Detection gate",
-        value: "Caught late at\nPruefung Linie 2",
-        x: 920,
-        y: 168,
-      },
-    ];
-    const diagramLinks: DiagramLink[] = [
-      { from: "section", to: "cause", label: "originates in" },
-      { from: "testSignal", to: "cause", label: "warns of" },
-      { from: "noise", to: "cause", label: "clarifies" },
-      { from: "cause", to: "spike", label: "creates" },
-      { from: "spike", to: "detection", label: "caught at" },
-    ];
-
+    const graphKey = `${visualization.kind}:${visualization.section}:${visualization.filteredFalsePositives}:${visualization.trend.map((point) => `${point.label}-${point.defectCount}-${point.failCount}-${point.marginalCount}`).join("|")}`;
     return (
       <div className="story-evidence-layout">
         <p className="story-visual-summary">
           {visualization.summary} Focus section: <strong>{visualization.section}</strong>.
         </p>
-        <FlowDiagram nodes={diagramNodes} links={diagramLinks} />
-        <div className="story-support-grid process-layout">
-          <section className="story-support-panel">
-            <h4>Defect and test signal by week</h4>
-            <SignalTrendChart data={visualization.trend} />
-          </section>
-          <section className="story-support-panel">
-            <h4>Detected vs. occurred</h4>
-            <SectionHeatmap data={visualization.heatmap} />
-          </section>
-        </div>
+        <StoryEvidenceGraph key={graphKey} visualization={visualization} />
         <div className="story-kpi-grid">
+          <div className="story-kpi-card">
+            <span>Focus section</span>
+            <strong>{visualization.section}</strong>
+            <p>Most likely occurrence section for the bounded process spike</p>
+          </div>
+          <div className="story-kpi-card">
+            <span>Peak window</span>
+            <strong>{peakPoint?.label ?? "Unknown"}</strong>
+            <p>
+              {peakPoint?.defectCount ?? 0} defects, {peakPoint?.failCount ?? 0} fail,{" "}
+              {peakPoint?.marginalCount ?? 0} marginal
+            </p>
+          </div>
           <div className="story-kpi-card">
             <span>Filtered false positives</span>
             <strong>{visualization.filteredFalsePositives}</strong>
-            <p>Inspection noise removed from the signature</p>
+            <p>Inspection noise removed before pattern scoring</p>
           </div>
         </div>
-        <div className="story-fact-block">
-          <h4>Supporting facts</h4>
-          <div className="story-fact-grid">
-            {evidenceTrail.map((item) => (
-              <div className="story-fact-chip" key={item}>
-                {shortEvidence(item)}
-              </div>
-            ))}
-          </div>
-          <ul className="bullet-list compact">
-            {visualization.annotations.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
+        <div className="story-support-grid">
+          <section className="story-support-panel">
+            <h4>Signal window</h4>
+            <SignalTimeline data={visualization.trend} />
+          </section>
         </div>
+        <StoryFacts evidenceTrail={evidenceTrail} annotations={visualization.annotations} />
       </div>
     );
   }
 
   if (visualization.kind === "design") {
     const dominantLag = [...visualization.lagDistribution].sort((a, b) => b.count - a.count)[0];
-    const scatterData = visualization.claimScatter.map((point) => ({
-      id: point.id,
-      x: point.x,
-      y: point.y,
-      article_name: point.articleName,
-      market: point.market,
-      cost: point.cost,
-      claim_ts: point.claimTs,
-      complaint_excerpt: point.complaintExcerpt,
-    }));
-    const diagramNodes: DiagramNode[] = [
-      {
-        id: "article",
-        title: "Article",
-        value: `${scatterData.length} claim(s)\non this platform`,
-        x: 24,
-        y: 40,
-        tone: "accent",
-      },
-      {
-        id: "bom",
-        title: "BOM hotspot",
-        value: `${visualization.assembly}\n${visualization.findNumber}`,
-        x: 24,
-        y: 136,
-      },
-      {
-        id: "fieldOnly",
-        title: "Negative evidence",
-        value: `${visualization.fieldOnlyClaims} field-only claim(s)\nwithout factory defects`,
-        x: 24,
-        y: 232,
-        tone: "warning",
-      },
-      {
-        id: "cause",
-        title: "Pattern",
-        value: "Latent design weakness\nthermal drift over time",
-        x: 344,
-        y: 126,
-        width: 220,
-        height: 92,
-        tone: "danger",
-      },
-      {
-        id: "lag",
-        title: "Failure window",
-        value: `${dominantLag?.label ?? "8-12 wk"}\ncustomer-use delay`,
-        x: 712,
-        y: 84,
-        tone: "warning",
-      },
-      {
-        id: "claims",
-        title: "Field impact",
-        value: `${scatterData.length} reported claim(s)\nvisible only in field`,
-        x: 928,
-        y: 168,
-        tone: "accent",
-      },
-    ];
-    const diagramLinks: DiagramLink[] = [
-      { from: "article", to: "cause", label: "appears on" },
-      { from: "bom", to: "cause", label: "centered at" },
-      { from: "fieldOnly", to: "cause", label: "implies" },
-      { from: "cause", to: "lag", label: "emerges as" },
-      { from: "lag", to: "claims", label: "surfaces in" },
-    ];
+    const totalClaims = visualization.claimScatter.length;
+    const graphKey = `${visualization.kind}:${visualization.findNumber}:${visualization.fieldOnlyClaims}:${visualization.overlappingClaims}:${visualization.claimScatter.length}`;
 
     return (
       <div className="story-evidence-layout">
         <p className="story-visual-summary">{visualization.summary}</p>
-        <FlowDiagram nodes={diagramNodes} links={diagramLinks} />
+        <StoryEvidenceGraph key={graphKey} visualization={visualization} />
         <div className="story-kpi-grid">
           <div className="story-kpi-card">
             <span>BOM position</span>
@@ -675,14 +288,12 @@ export function StoryEvidenceView({ visualization, evidenceTrail }: Props) {
           <div className="story-kpi-card">
             <span>Field-only signal</span>
             <strong>{visualization.fieldOnlyClaims}</strong>
-            <p>{visualization.overlappingClaims} claim(s) overlap factory defects</p>
+            <p>
+              {visualization.fieldOnlyClaims} of {totalClaims} claim(s) lack a linked factory defect
+            </p>
           </div>
         </div>
-        <div className="story-support-grid design-layout">
-          <section className="story-support-panel story-support-panel-accent">
-            <h4>Build date vs. claim lag</h4>
-            <ClaimLagScatter data={scatterData} />
-          </section>
+        <div className="story-support-grid two-up">
           <section className="story-support-panel">
             <h4>Lag buckets</h4>
             <DistributionBars
@@ -690,94 +301,41 @@ export function StoryEvidenceView({ visualization, evidenceTrail }: Props) {
               emptyLabel="No lag evidence yet."
             />
           </section>
+          <section className="story-support-panel">
+            <h4>Evidence balance</h4>
+            <DistributionBars
+              points={[
+                {
+                  label: "Field-only",
+                  count: visualization.fieldOnlyClaims,
+                  detail: "Claims with no linked factory defect",
+                  highlight: true,
+                },
+                {
+                  label: "Overlap",
+                  count: visualization.overlappingClaims,
+                  detail: "Claims that still overlap factory evidence",
+                },
+              ]}
+              emptyLabel="No design evidence balance available."
+            />
+            <p className="story-support-note">
+              Dominant lag bucket: <strong>{dominantLag?.label ?? "Not enough evidence yet"}</strong>.
+            </p>
+          </section>
         </div>
-        <div className="story-fact-block">
-          <h4>Supporting facts</h4>
-          <div className="story-fact-grid">
-            {evidenceTrail.map((item) => (
-              <div className="story-fact-chip" key={item}>
-                {shortEvidence(item)}
-              </div>
-            ))}
-          </div>
-          <ul className="bullet-list compact">
-            {visualization.annotations.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
+        <StoryFacts evidenceTrail={evidenceTrail} annotations={visualization.annotations} />
       </div>
     );
   }
 
-  const topMatrixCell = [...visualization.orderMatrix.cells].sort((a, b) => b.count - a.count)[0];
-  const dominantSeverity =
-    [...visualization.severityMix].sort((a, b) => b.count - a.count)[0]?.label ?? "Low";
-  const diagramNodes: DiagramNode[] = [
-    {
-      id: "orders",
-      title: "Recurring orders",
-      value: visualization.orderMatrix.orders.join("\n") || "Order cluster pending",
-      x: 24,
-      y: 40,
-      tone: "accent",
-    },
-    {
-      id: "operator",
-      title: "Dominant operator",
-      value: visualization.operator,
-      x: 24,
-      y: 136,
-    },
-    {
-      id: "severity",
-      title: "Severity mix",
-      value: `${dominantSeverity}-severity\ncosmetic pattern`,
-      x: 24,
-      y: 232,
-      tone: "warning",
-    },
-    {
-      id: "cause",
-      title: "Pattern",
-      value: "Handling correlation\nacross repeat orders",
-      x: 344,
-      y: 126,
-      width: 220,
-      height: 92,
-      tone: "danger",
-    },
-    {
-      id: "defects",
-      title: "Defect cluster",
-      value: `${topMatrixCell?.count ?? 0} strongest links\nin operator matrix`,
-      x: 712,
-      y: 84,
-      tone: "accent",
-    },
-    {
-      id: "action",
-      title: "Follow-up",
-      value: `${visualization.actionSnapshot.closedActions} closed / ${visualization.actionSnapshot.openActions} open`,
-      x: 928,
-      y: 168,
-      tone: "success",
-    },
-  ];
-  const diagramLinks: DiagramLink[] = [
-    { from: "orders", to: "cause", label: "repeat across" },
-    { from: "operator", to: "cause", label: "linked to" },
-    { from: "severity", to: "cause", label: "narrows to" },
-    { from: "cause", to: "defects", label: "shows as" },
-    { from: "defects", to: "action", label: "tracked by" },
-  ];
-
+  const graphKey = `${visualization.kind}:${visualization.operator}:${visualization.orderMatrix.orders.join("|")}:${visualization.actionSnapshot.openActions}:${visualization.actionSnapshot.closedActions}`;
   return (
     <div className="story-evidence-layout">
       <p className="story-visual-summary">
         {visualization.summary} Dominant operator: <strong>{visualization.operator}</strong>.
       </p>
-      <FlowDiagram nodes={diagramNodes} links={diagramLinks} />
+      <StoryEvidenceGraph key={graphKey} visualization={visualization} />
       <div className="story-support-grid handling-layout">
         <section className="story-support-panel">
           <h4>Order by operator matrix</h4>
@@ -803,21 +361,7 @@ export function StoryEvidenceView({ visualization, evidenceTrail }: Props) {
           </div>
         </section>
       </div>
-      <div className="story-fact-block">
-        <h4>Supporting facts</h4>
-        <div className="story-fact-grid">
-          {evidenceTrail.map((item) => (
-            <div className="story-fact-chip" key={item}>
-              {shortEvidence(item)}
-            </div>
-          ))}
-        </div>
-        <ul className="bullet-list compact">
-          {visualization.annotations.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </div>
+      <StoryFacts evidenceTrail={evidenceTrail} annotations={visualization.annotations} />
     </div>
   );
 }

@@ -790,8 +790,8 @@ export function QontrolApp() {
         <div className="hero-stats">
           <MetricCard
             label="Open cases"
-            value={countByState(orderedCases, "unassigned") + countByState(orderedCases, "assigned")}
-            tooltip="Total cases in Unassigned or Assigned state that still need resolution."
+            value={countByState(orderedCases, "unassigned")}
+            tooltip="Cases currently sitting in the Unassigned queue and awaiting QM action."
           />
           <MetricCard
             label="Needs follow-up"
@@ -941,7 +941,7 @@ export function QontrolApp() {
                             <div className="operational-summary-header">
                               <div className="operational-summary-label">
                                 <AiGeneratedIcon />
-                                <span>Latest GitHub takeaway</span>
+                                <span>GitHub conversation summary</span>
                               </div>
                               <p className="operational-summary-meta">
                                 {selectedCase.external?.discussionUpdatedAt ?? "Recently updated"}
@@ -1369,29 +1369,12 @@ export function QontrolApp() {
                         ✓
                       </span>
                       <div>
-                        <strong>Routing completed</strong>
+                        <strong>Routed to GitHub</strong>
                         <p className="routing-success-copy">
-                          Engineers will work in GitHub. All GitHub comments, status changes, and
-                          updates sync back into Qontrol automatically.
+                          Engineers will work in GitHub. Qontrol stays in sync automatically.
                         </p>
                       </div>
                     </div>
-
-                    {routeDialog.githubUrl ? (
-                      <a
-                        className="secondary-button inline-action-link"
-                        href={routeDialog.githubUrl}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        {routeDialog.githubLabel ?? "Open GitHub issue"}
-                      </a>
-                    ) : null}
-
-                    <p className="routing-success-meta">
-                      Qontrol will keep this case cluster linked to the shared GitHub ticket and reflect
-                      downstream progress back on the QM board.
-                    </p>
                   </div>
                 ) : null}
 

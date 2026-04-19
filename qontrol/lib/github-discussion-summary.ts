@@ -157,7 +157,7 @@ export async function buildGitHubDiscussionSummary(params: {
         {
           role: "system",
           content:
-            "You summarize GitHub engineering discussion for a quality manager. Output exactly two plain-text lines, no bullets or markdown. Keep it concise, concrete, and grounded only in the supplied issue discussion. Line 1 must capture the current engineering takeaway, such as difficulty, confidence, ETA, or delivery status when present. Prefer phrasing like 'Easy fix, team estimates 1 day.' when the discussion supports it. Line 2 must capture the blocker, decision, owner update, or next step when present. Do not hedge with generic filler and do not invent facts.",
+            "Summarize the GitHub engineering conversation for a quality manager in exactly two plain-text lines. No bullets, no markdown, no headings. Keep it concise, concrete, and grounded only in the supplied issue discussion. Line 1 should capture the current status or effort signal, such as difficulty, confidence, ETA, or delivery status when present. Line 2 should capture the blocker, decision, owner update, or next step when present. Prefer direct phrasing like 'Easy fix, team estimates 1 day.' when the discussion supports it. Do not hedge with generic filler and do not invent facts.",
         },
         {
           role: "user",

@@ -1364,7 +1364,8 @@ function buildProcessVisualization(params: {
   return {
     kind: "process",
     title: "Process drift trend",
-    summary: "Look for the short-lived spike and the section where it concentrates.",
+    summary:
+      "Look for the short-lived spike, the section where it concentrates, and any inspection hotspot that only amplifies detection.",
     section:
       relevantDefects[0]?.occurrence_section_name ??
       relevantDefects[0]?.detected_section_name ??
@@ -1456,7 +1457,8 @@ function buildDesignVisualization(params: {
   return {
     kind: "design",
     title: "BOM hotspot",
-    summary: "Field-only failures with zero factory defects usually point to a design leak.",
+    summary:
+      "Mostly field-only failures with delayed claim lag point to a latent design leak, even if some overlap factory evidence.",
     assembly: params.item.partNumber === "PM-00015" ? "Steuerplatine" : "Assembly node",
     findNumber: matchedNode?.find_number ?? (params.item.partNumber === "PM-00015" ? "R33" : "Target node"),
     lagDistribution,
@@ -2360,7 +2362,7 @@ function buildVisualizationDiagram(visualization: StoryVisualization) {
         },
         { id: "pattern", label: "Pattern\nCalibration drift\nat assembly step" },
         { id: "spike", label: `Spike\n${peakPoint?.defectCount ?? 0} peak-week defects` },
-        { id: "gate", label: "Detection gate\nCaught late at Pruefung Linie 2" },
+        { id: "gate", label: "Inspection hotspot\nDetection amplified, not caused" },
       ],
       [
         { from: "section", to: "pattern", label: "originates in" },
@@ -2381,9 +2383,9 @@ function buildVisualizationDiagram(visualization: StoryVisualization) {
         { id: "bom", label: `BOM hotspot\n${visualization.assembly}\n${visualization.findNumber}` },
         {
           id: "negative",
-          label: `Negative evidence\n${visualization.fieldOnlyClaims} field-only claims`,
+          label: `Negative evidence\n${visualization.fieldOnlyClaims} of ${visualization.claimScatter.length} claims lack factory defects`,
         },
-        { id: "pattern", label: "Pattern\nLatent design weakness\nthermal drift over time" },
+        { id: "pattern", label: "Pattern\nLatent design weakness\nthermal drift suspected" },
         { id: "window", label: `Failure window\n${dominantLag?.label ?? "8-12 wk"} customer-use delay` },
         { id: "field", label: `Field impact\n${visualization.claimScatter.length} reported claims` },
       ],
@@ -2456,7 +2458,7 @@ function buildVisualizationFacts(visualization: StoryVisualization) {
     const dominantLag = [...visualization.lagDistribution].sort((a, b) => b.count - a.count)[0];
     return [
       `BOM hotspot centers on ${visualization.assembly} / ${visualization.findNumber}.`,
-      `${visualization.fieldOnlyClaims} field-only claims point to a latent issue that does not reproduce cleanly in factory data.`,
+      `${visualization.fieldOnlyClaims} of ${visualization.claimScatter.length} claims have no linked factory defect; ${visualization.overlappingClaims} still overlap factory data.`,
       `Likeliest failure window is ${dominantLag?.label ?? "not enough evidence yet"} after build.`,
     ];
   }

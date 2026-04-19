@@ -8,6 +8,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@xyflow/react": "^12.10.2",
     "next": "^16.2.4",
     "openai": "^6.16.0",
     "react": "^19.2.5",
