@@ -4198,7 +4198,7 @@ button {
 }
 
 /* Obere drei Hero-KPI-Kacheln: Beschriftung und Werte schwarz */
-[data-dept="rd"] .hero-stats .metric-card.kpi-card .kpi-card-label-row > span,
+[data-dept="rd"] .hero-stats .metric-card .metric-card-label,
 [data-dept="rd"] .hero-stats .metric-card strong {
   color: #000000;
 }
@@ -4213,33 +4213,16 @@ button {
   background: var(--surface-muted);
 }
 
+[data-dept="rd"] .hero-stats .metric-card > strong {
+  display: block;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
 /* ---- R&D layout utilities ---- */
 
-/* KPI info icon + tooltip (R&D hero cards: label + icon in a row — no overlap) */
-
-.kpi-card-label-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.kpi-card .kpi-card-label-row > span {
-  flex: 1;
-  min-width: 0;
-  margin-bottom: 0;
-  display: block;
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.35;
-}
-
-.metric-card.kpi-card .kpi-info-btn {
-  position: static;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
+/* KPI info icon + tooltip (same pattern as QM hero MetricCard: metric-card-header + metric-card-label) */
 
 .kpi-info-btn {
   position: absolute;

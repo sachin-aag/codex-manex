@@ -15,9 +15,13 @@
   </defs>
 
   <rect width="1400" height="820" rx="32" fill="#F8FAFC"/>
-  <text x="700" y="92" text-anchor="middle" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="700">Qontrol ecosystem</text>
-  <text x="700" y="126" text-anchor="middle" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="20">One QM control layer connected to the tools every team already uses</text>
+  <text x="700" y="76" text-anchor="middle" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="40" font-weight="700">Qontrol ecosystem</text>
+  <text x="700" y="108" text-anchor="middle" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="500">
+    <tspan x="700" dy="0">One QM control layer connecting tools</tspan>
+    <tspan x="700" dy="24">every team already uses</tspan>
+  </text>
 
+  <g transform="translate(0, 32)">
   <circle cx="700" cy="410" r="258" stroke="url(#ringGradient)" stroke-width="3" stroke-dasharray="4 14" opacity="0.45"/>
 
   <path d="M700 410 L700 184" stroke="#0EA5E9" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 10"/>
@@ -102,5 +106,6 @@
     <text x="480" y="228" text-anchor="middle" fill="white" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700">SP</text>
     <text x="480" y="276" text-anchor="middle" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">Supplier portal</text>
     <text x="480" y="304" text-anchor="middle" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="16">Supply chain</text>
+  </g>
   </g>
 </svg>

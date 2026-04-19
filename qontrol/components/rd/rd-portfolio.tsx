@@ -107,29 +107,36 @@ function filterInboxCases(
 }
 
 function KpiCard({ label, value, hint }: { label: string; value: string | number; hint: string }) {
-  const [open, setOpen] = useState(false);
+  const [showTip, setShowTip] = useState(false);
   return (
-    <div className="metric-card kpi-card" style={{ position: "relative" }}>
-      <div className="kpi-card-label-row">
-        <span>{label}</span>
+    <div className="metric-card">
+      <div className="metric-card-header">
+        <span className="metric-card-label">{label}</span>
         <button
           type="button"
           className="kpi-info-btn"
-          aria-label={`Info: ${label}`}
-          onClick={() => setOpen((v) => !v)}
-          onBlur={() => setOpen(false)}
+          aria-label={`Info about ${label}`}
+          onBlur={() => setShowTip(false)}
+          onClick={() => setShowTip((v) => !v)}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            fill="none"
+            height="16"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            width="16"
+          >
             <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
+            <line x1="12" x2="12" y1="16" y2="12" />
+            <line x1="12" x2="12.01" y1="8" y2="8" />
           </svg>
+          {showTip ? <span className="kpi-tooltip">{hint}</span> : null}
         </button>
       </div>
       <strong>{value}</strong>
-      {open && (
-        <div className="kpi-tooltip">{hint}</div>
-      )}
     </div>
   );
 }
