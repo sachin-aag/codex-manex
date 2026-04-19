@@ -105,56 +105,65 @@ export function QontrolApp() {
   const [isLoading, setIsLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [expandedColumns, setExpandedColumns] = useState<Set<string>>(new Set());
   const [routeDialog, setRouteDialog] = useState<RouteDialogState | null>(null);
   const [closeDialog, setCloseDialog] = useState<CloseDialogState | null>(null);
   const [showClosedTicketsDialog, setShowClosedTicketsDialog] = useState(false);
 
   const allCases = useMemo(() => Object.values(cases), [cases]);
   const topDefectTypes = useMemo(() => getTopDefectTypes(allCases), [allCases]);
+  const filterContexts = useMemo(
+    () => ({
+      sourceTypes: getContextualCases(allCases, filters, topDefectTypes, "sourceTypes"),
+      stories: getContextualCases(allCases, filters, topDefectTypes, "stories"),
+      defectTypes: getContextualCases(allCases, filters, topDefectTypes, "defectTypes"),
+      responsibleTeams: getContextualCases(
+        allCases,
+        filters,
+        topDefectTypes,
+        "responsibleTeams",
+      ),
+      clarities: getContextualCases(allCases, filters, topDefectTypes, "clarities"),
+    }),
+    [allCases, filters, topDefectTypes],
+  );
   const filterOptions = useMemo(
     () => ({
-      sourceTypes: sourceTypeOrder.filter((value) =>
-        allCases.some((item) => item.sourceType === value),
+      sourceTypes: getOrderedFilterOptions(
+        sourceTypeOrder,
+        filterContexts.sourceTypes,
+        (item) => item.sourceType,
+        filters.sourceTypes,
       ),
-      stories: storyOrder.filter((value) =>
-        allCases.some((item) => item.story === value),
+      stories: getOrderedFilterOptions(
+        storyOrder,
+        filterContexts.stories,
+        (item) => item.story,
+        filters.stories,
       ),
-      defectTypes: getDefectTypeFilterOptions(allCases, topDefectTypes),
-      responsibleTeams: responsibleTeamOrder.filter((value) =>
-        allCases.some((item) => item.responsibleTeam === value),
+      defectTypes: mergeFilterOptions(
+        getDefectTypeFilterOptions(filterContexts.defectTypes, topDefectTypes),
+        filters.defectTypes,
       ),
-      clarities: clarityOrder.filter((value) =>
-        allCases.some((item) => item.clarity === value),
+      responsibleTeams: getOrderedFilterOptions(
+        responsibleTeamOrder,
+        filterContexts.responsibleTeams,
+        (item) => item.responsibleTeam,
+        filters.responsibleTeams,
+      ),
+      clarities: getOrderedFilterOptions(
+        clarityOrder,
+        filterContexts.clarities,
+        (item) => item.clarity,
+        filters.clarities,
       ),
     }),
-    [allCases, topDefectTypes],
+    [filterContexts, filters, topDefectTypes],
   );
-  const filteredCases = useMemo(() => {
-    return allCases.filter((item) => {
-      if (filters.sourceTypes.length > 0 && !filters.sourceTypes.includes(item.sourceType)) {
-        return false;
-      }
-      if (filters.stories.length > 0 && !filters.stories.includes(item.story)) {
-        return false;
-      }
-      if (
-        filters.defectTypes.length > 0 &&
-        !matchesDefectTypeFilter(item.defectType, filters.defectTypes, topDefectTypes)
-      ) {
-        return false;
-      }
-      if (
-        filters.responsibleTeams.length > 0 &&
-        !filters.responsibleTeams.includes(item.responsibleTeam)
-      ) {
-        return false;
-      }
-      if (filters.clarities.length > 0 && !filters.clarities.includes(item.clarity)) {
-        return false;
-      }
-      return true;
-    });
-  }, [allCases, filters, topDefectTypes]);
+  const filteredCases = useMemo(
+    () => allCases.filter((item) => matchesBoardFilters(item, filters, topDefectTypes)),
+    [allCases, filters, topDefectTypes],
+  );
   const orderedCases = useMemo(() => {
     return [...filteredCases].sort((a, b) => {
       const followUpDiff =
@@ -179,6 +188,11 @@ export function QontrolApp() {
   );
   const relatedRouteCount = routeableSimilarCases.length;
   const similarTickets = selectedCase?.similarTickets.slice(0, 3) ?? [];
+  const usesComplaintSimilarity = selectedCase?.sourceType === "claim";
+  const similarPanelTitle = usesComplaintSimilarity ? "Similar claims" : "Similar tickets";
+  const similarPanelDescription = usesComplaintSimilarity
+    ? "Top complaint-text matches generated using LLM embeddings of complaint text."
+    : "Operationally useful matches, not just semantic similarity.";
   const aiGeneratedLearning = selectedCase
     ? buildAiGeneratedLearning(similarTickets, selectedCase.defectType)
     : null;
@@ -800,6 +814,7 @@ export function QontrolApp() {
           <p className="eyebrow">
             <span className="eyebrow-initial">Q</span>
             <span className="eyebrow-rest">ontrol</span>
+            <span className="eyebrow-tagline">Take Control of Quality.</span>
           </p>
           <h1>Quality operations board</h1>
           <p className="hero-copy">
@@ -838,7 +853,7 @@ export function QontrolApp() {
               <div className="focused-kanban-nav">
                 <button
                   aria-label="Previous category"
-                  className="icon-close-button"
+                  className="focused-nav-arrow"
                   onClick={() => cycleFocusedCategory(-1)}
                   type="button"
                 >
@@ -855,25 +870,45 @@ export function QontrolApp() {
                 </div>
                 <button
                   aria-label="Next category"
-                  className="icon-close-button"
+                  className="focused-nav-arrow"
                   onClick={() => cycleFocusedCategory(1)}
                   type="button"
                 >
                   →
                 </button>
               </div>
-              <div className="focused-kanban-cards">
-                {orderedCases
-                  .filter((item) => item.state === focusedCategory)
-                  .map((item) => (
-                    <TicketCard
-                      key={item.id}
-                      item={item}
-                      isSelected={selectedId === item.id}
-                      onSelect={handleTicketSelect}
-                    />
-                  ))}
-              </div>
+              {(() => {
+                const focusedCases = orderedCases.filter((item) => item.state === focusedCategory);
+                const isFocusedExpanded = expandedColumns.has(`focused-${focusedCategory}`);
+                const COLUMN_LIMIT = 10;
+                const hasMoreFocused = focusedCases.length > COLUMN_LIMIT;
+                const visibleFocused = isFocusedExpanded ? focusedCases : focusedCases.slice(0, COLUMN_LIMIT);
+                return (
+                  <>
+                    <div className={`focused-kanban-cards ${!isFocusedExpanded && hasMoreFocused ? "column-cards-faded" : ""}`}>
+                      {visibleFocused.map((item) => (
+                        <TicketCard
+                          key={item.id}
+                          item={item}
+                          isSelected={selectedId === item.id}
+                          onSelect={handleTicketSelect}
+                        />
+                      ))}
+                    </div>
+                    {hasMoreFocused && !isFocusedExpanded ? (
+                      <button
+                        className="show-more-button"
+                        onClick={() =>
+                          setExpandedColumns((prev) => new Set([...prev, `focused-${focusedCategory}`]))
+                        }
+                        type="button"
+                      >
+                        Show more ({focusedCases.length - COLUMN_LIMIT} remaining)
+                      </button>
+                    ) : null}
+                  </>
+                );
+              })()}
             </div>
 
             <div className="focused-detail">
@@ -934,88 +969,297 @@ export function QontrolApp() {
                   </div>
 
                   <div className="detail-grid">
-                    <div className="detail-main">
-                      {actionError ? (
-                        <Panel unified title="Update error" description="Most recent backend error.">
-                          <p>{actionError}</p>
-                        </Panel>
-                      ) : null}
-                      <Panel unified title="Operational overview" description="Top priority signals for QM right now.">
-                        <div className="overview-grid">
-                          <MetricBlock label="Cost impact" value={formatCurrency(selectedCase.costUsd)} />
-                          <MetricBlock label="Last update" value={timeSince(selectedCase.lastUpdateAt)} />
-                          <MetricBlock
-                            label="Follow-up needed"
-                            value={selectedCaseNeedsFollowUp ? "Yes" : "No"}
-                            tone={selectedCaseNeedsFollowUp ? "danger" : "neutral"}
-                          />
-                          {!selectedCaseNeedsFollowUp ? (
-                            <MetricBlock
-                              label="Next follow-up"
-                              value={formatFollowUpDate(selectedCase.nextFollowUpAt)}
-                            />
-                          ) : null}
-                        </div>
-                        {githubDiscussionSummary ? (
-                          <div className="operational-summary-card">
-                            <div className="operational-summary-header">
-                              <div className="operational-summary-label">
-                                <AiGeneratedIcon />
-                                <span>GitHub conversation summary</span>
-                              </div>
-                              <p className="operational-summary-meta">
-                                {selectedCase.external?.discussionUpdatedAt ?? "Recently updated"}
-                              </p>
-                            </div>
-                            <p className="operational-summary-copy">{githubDiscussionSummary}</p>
-                          </div>
+                    <div className="detail-grid-top">
+                      <div className="detail-main">
+                        {actionError ? (
+                          <Panel unified title="Update error" description="Most recent backend error.">
+                            <p>{actionError}</p>
+                          </Panel>
                         ) : null}
-                      </Panel>
-
-                      <Panel unified title="Triage signals" description="Fast context for priority, cohort size, and next move.">
-                        <div className="overview-grid">
-                          <MetricBlock
-                            label="Matching cases"
-                            value={String(selectedCase.triageContext.matchingCases)}
-                          />
-                          <MetricBlock
-                            label="Open in same pattern"
-                            value={String(selectedCase.triageContext.openMatchingCases)}
-                          />
-                          <MetricBlock
-                            label="Queue priority"
-                            value={selectedCase.triageContext.queuePriority}
-                            tone={selectedCase.severity === "high" ? "danger" : "neutral"}
-                          />
-                          <MetricBlock
-                            label="Next move"
-                            value={selectedCase.triageContext.nextMove}
-                          />
-                        </div>
-                        <p className="triage-signal-copy">{selectedCase.triageContext.timeSignal}</p>
-                      </Panel>
-
-                      <Panel unified title="Story match" description="Why Qontrol thinks this is the right pattern.">
-                        <div className="match-grid">
-                          <div>
-                            <h4>Why this looks right</h4>
-                            <ul className="bullet-list">
-                              {selectedCase.routingWhy.map((item) => (
-                                <li key={item}>{item}</li>
-                              ))}
-                            </ul>
+                        <Panel unified title="Operational overview" description="Top priority signals for QM right now.">
+                          <div className="overview-grid">
+                            <MetricBlock label="Cost impact" value={formatCurrency(selectedCase.costUsd)} />
+                            <MetricBlock label="Last update" value={timeSince(selectedCase.lastUpdateAt)} />
+                            <MetricBlock
+                              label="Follow-up needed"
+                              value={selectedCaseNeedsFollowUp ? "Yes" : "No"}
+                              tone={selectedCaseNeedsFollowUp ? "danger" : "neutral"}
+                            />
+                            {!selectedCaseNeedsFollowUp ? (
+                              <MetricBlock
+                                label="Next follow-up"
+                                value={formatFollowUpDate(selectedCase.nextFollowUpAt)}
+                              />
+                            ) : null}
                           </div>
-                          <div>
-                            <h4>Still missing</h4>
-                            <ul className="bullet-list">
-                              {selectedCase.missingEvidence.map((item) => (
-                                <li key={item}>{item}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                      </Panel>
+                          {githubDiscussionSummary ? (
+                            <div className="operational-summary-card">
+                              <div className="operational-summary-header">
+                                <div className="operational-summary-label">
+                                  <AiGeneratedIcon />
+                                  <span>GitHub conversation summary</span>
+                                </div>
+                                <p className="operational-summary-meta">
+                                  {selectedCase.external?.discussionUpdatedAt ?? "Recently updated"}
+                                </p>
+                              </div>
+                              <p className="operational-summary-copy">{githubDiscussionSummary}</p>
+                            </div>
+                          ) : null}
+                        </Panel>
 
+                        <Panel unified title="Triage signals" description="Fast context for priority, cohort size, and next move.">
+                          <div className="overview-grid">
+                            <MetricBlock
+                              label="Matching cases"
+                              value={String(selectedCase.triageContext.matchingCases)}
+                            />
+                            <MetricBlock
+                              label="Open in same pattern"
+                              value={String(selectedCase.triageContext.openMatchingCases)}
+                            />
+                            <MetricBlock
+                              label="Queue priority"
+                              value={selectedCase.triageContext.queuePriority}
+                              tone={selectedCase.severity === "high" ? "danger" : "neutral"}
+                            />
+                            <MetricBlock
+                              label="Next move"
+                              value={selectedCase.triageContext.nextMove}
+                            />
+                          </div>
+                          <p className="triage-signal-copy">{selectedCase.triageContext.timeSignal}</p>
+                        </Panel>
+
+                        <Panel unified title="Story match" description="Why Qontrol thinks this is the right pattern.">
+                          <div className="match-grid">
+                            <div>
+                              <h4>Why this looks right</h4>
+                              <ul className="bullet-list">
+                                {selectedCase.routingWhy.map((item) => (
+                                  <li key={item}>{item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div>
+                              <h4>Still missing</h4>
+                              <ul className="bullet-list">
+                                {selectedCase.missingEvidence.map((item) => (
+                                  <li key={item}>{item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        </Panel>
+                      </div>
+
+                      <div className="detail-side">
+                        <Panel unified title="Proposed fix" description="Sent into the team board ticket and tracked back into QM.">
+                          <div className="proposed-fix-preview">
+                            <span
+                              aria-label="AI-generated summary"
+                              className="ai-generated-icon"
+                              role="img"
+                              title="AI-generated summary"
+                            >
+                              <svg
+                                aria-hidden="true"
+                                fill="none"
+                                height="14"
+                                stroke="currentColor"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                viewBox="0 0 24 24"
+                                width="14"
+                              >
+                                <path d="M12 3l1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3z" />
+                              </svg>
+                            </span>
+                            <p className="proposed-fix-preview-copy">
+                              {getProposedFixSummary(selectedCase.proposedFix)}
+                            </p>
+                          </div>
+                          <details className="proposed-fix-collapse">
+                            <summary className="proposed-fix-toggle">See fix details</summary>
+                            <div className="proposed-fix-body">
+                              <div className="requested-action">
+                                <div>
+                                  <h4>Containment</h4>
+                                  <p>{selectedCase.proposedFix.containment}</p>
+                                </div>
+                                <div>
+                                  <h4>Permanent fix</h4>
+                                  <p>{selectedCase.proposedFix.permanentFix}</p>
+                                </div>
+                                <div>
+                                  <h4>Validation ask</h4>
+                                  <p>{selectedCase.proposedFix.validation}</p>
+                                </div>
+                                <div>
+                                  <h4>Confidence</h4>
+                                  <p>{selectedCase.proposedFix.confidence}</p>
+                                </div>
+                                <div>
+                                  <h4>Owner confirmation</h4>
+                                  <p>{selectedCase.proposedFix.ownerConfirmation}</p>
+                                </div>
+                              </div>
+                              <ul className="bullet-list compact top-gap">
+                                {selectedCase.proposedFix.basis.map((item) => (
+                                  <li key={item}>{item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </details>
+                        </Panel>
+
+                        <Panel unified title="Routing" description="Who owns the current action and why.">
+                          <div className="stack-list">
+                            <SideRow label="QM owner" value={selectedCase.qmOwner} />
+                            {selectedCase.csOwner ? (
+                              <SideRow label="CS owner" value={selectedCase.csOwner} />
+                            ) : null}
+                            <SideRow label="Technical team" value={selectedCase.ownerTeam} />
+                            {selectedCase.sourceType === "claim" ? (
+                              <SideRow label="Market" value={selectedCase.market} />
+                            ) : null}
+                            <SideRow label="Product" value={`${selectedCase.articleId} / ${selectedCase.partNumber}`} />
+                          </div>
+                        </Panel>
+
+                        <details className="email-collapse">
+                          <summary className="email-collapse-toggle">Follow up options</summary>
+                          <div className="email-collapse-content">
+                            <p className="email-meta">Fast actions for the current case.</p>
+                            <div className="action-stack">
+                              <button className="secondary-button" onClick={handleSendEmail} type="button">
+                                Send email
+                              </button>
+                              <button className="secondary-button" onClick={handleSetupCall} type="button">
+                                Set up call
+                              </button>
+                              <button className="ghost-button" onClick={handleEscalate} type="button">
+                                Escalate to manager
+                              </button>
+                            </div>
+                          </div>
+                        </details>
+
+                        {selectedCase.imageUrl ? (
+                          <details className="email-collapse">
+                            <summary className="email-collapse-toggle">Defect image</summary>
+                            <div className="email-collapse-content">
+                              <img
+                                alt={`Image for ${selectedCase.id}`}
+                                className="defect-image"
+                                src={`/api/images?path=${encodeURIComponent(selectedCase.imageUrl)}`}
+                              />
+                            </div>
+                          </details>
+                        ) : null}
+
+                        <details className="email-collapse">
+                          <summary className="email-collapse-toggle">Assignment email draft</summary>
+                          <div className="email-collapse-content">
+                            <div className="email-meta">
+                              <p><strong>To:</strong> {selectedCase.emailDraft.to.join(", ")}</p>
+                              <p><strong>CC:</strong> {selectedCase.emailDraft.cc.join(", ")}</p>
+                              <p><strong>Subject:</strong> {selectedCase.emailDraft.subject}</p>
+                            </div>
+                            <textarea
+                              className="email-editor"
+                              onChange={(event) => handleEmailChange(event.target.value)}
+                              value={selectedCase.emailDraft.body}
+                            />
+                          </div>
+                        </details>
+
+                        <details className="email-collapse">
+                          <summary className="email-collapse-toggle">
+                            {usesGitHubBoard ? "External board" : "External handoff"}
+                          </summary>
+                          <div className="email-collapse-content">
+                            <p className="email-meta">
+                              {usesGitHubBoard
+                                ? "GitHub issue + board sync for R&D ownership and inbound updates."
+                                : "GitHub issue is shared on route; the downstream team tool stays mocked outside R&D."}
+                            </p>
+                            <div className="stack-list">
+                              <SideRow label="System" value={selectedCase.external?.system ?? "GitHub"} />
+                              <SideRow label="Ticket" value={selectedCase.external?.ticketId ?? "Not created"} />
+                              <SideRow label="Status" value={selectedCase.external?.status ?? "Draft"} />
+                              <SideRow label="Sync" value={selectedCase.external?.sync ?? "awaiting push"} />
+                              <SideRow label="Last external update" value={selectedCase.external?.lastUpdate ?? "None"} />
+                              <SideRow label="Repo" value={selectedCase.external?.repo ?? "Not configured"} />
+                              <SideRow
+                                label="Board"
+                                value={
+                                  usesGitHubBoard
+                                    ? selectedCase.external?.projectItemId
+                                      ? "GitHub Project"
+                                      : "Pending board sync"
+                                    : "Skipped outside R&D"
+                                }
+                              />
+                              <SideRow
+                                label="Team tool"
+                                value={usesGitHubBoard ? "GitHub" : mockToolName ?? "Mocked"}
+                              />
+                            </div>
+                            {selectedCase.external?.url ? (
+                              <a
+                                className="secondary-button top-gap inline-action-link"
+                                href={selectedCase.external.url}
+                                rel="noreferrer"
+                                target="_blank"
+                              >
+                                {selectedCase.external.urlLabel}
+                              </a>
+                            ) : null}
+                            <div className="action-stack top-gap">
+                              {usesGitHubBoard ? (
+                                <button
+                                  className="secondary-button"
+                                  disabled={isMutating}
+                                  onClick={handleConnectBoard}
+                                  type="button"
+                                >
+                                  {selectedCase.external?.issueNumber ? "Update GitHub issue" : "Create GitHub issue"}
+                                </button>
+                              ) : (
+                                <button
+                                  className="secondary-button"
+                                  disabled={isMutating || !selectedCase.external?.issueNumber}
+                                  onClick={handleMockExternalTool}
+                                  type="button"
+                                >
+                                  {mockToolName ? `Mock ${mockToolName}` : "Mock external handoff"}
+                                </button>
+                              )}
+                              <button
+                                className="ghost-button"
+                                disabled={isMutating || !selectedCase.external?.issueNumber}
+                                onClick={handleSyncGitHub}
+                                type="button"
+                              >
+                                Refresh GitHub sync
+                              </button>
+                              <button
+                                className="ghost-button"
+                                disabled={isMutating || !selectedCase.external?.issueNumber}
+                                onClick={handleBackfillGitHubSummaries}
+                                type="button"
+                              >
+                                Backfill all linked summaries
+                              </button>
+                            </div>
+                          </div>
+                        </details>
+                      </div>
+                    </div>
+
+                    <div className="detail-stack">
                       <Panel unified title="Evidence trail" description="Visual cause-and-effect path behind the recommendation.">
                         <StoryEvidenceView
                           visualization={selectedCase.visualization}
@@ -1024,7 +1268,7 @@ export function QontrolApp() {
                         />
                       </Panel>
 
-                      <Panel unified title="Similar tickets" description="Operationally useful matches, not just semantic similarity.">
+                      <Panel unified title={similarPanelTitle} description={similarPanelDescription}>
                         <div className="similar-grid">
                           {similarTickets.length > 0 ? (
                             <>
@@ -1032,7 +1276,7 @@ export function QontrolApp() {
                                 <table className="pf-table similar-table">
                                   <thead>
                                     <tr>
-                                      <th>Ticket</th>
+                                      <th>{usesComplaintSimilarity ? "Claim" : "Ticket"}</th>
                                       <th>Team</th>
                                       <th>Fixed by</th>
                                       <th>Time to fix</th>
@@ -1049,7 +1293,9 @@ export function QontrolApp() {
                                             type="button"
                                           >
                                             <span className="similar-ticket-primary">{ticket.id}</span>
-                                            <span className="similar-ticket-secondary">{ticket.title}</span>
+                                            <span className="similar-ticket-secondary">
+                                              {usesComplaintSimilarity ? ticket.preview : ticket.title}
+                                            </span>
                                           </button>
                                         </td>
                                         <td>{ticket.team}</td>
@@ -1072,36 +1318,28 @@ export function QontrolApp() {
                                     <span>AI-generated learning</span>
                                   </div>
                                   <p className="ai-learning-subtitle">
-                                    Synthesized from closed similar tickets.
+                                    {usesComplaintSimilarity
+                                      ? "Synthesized from closed similar claims."
+                                      : "Synthesized from closed similar tickets."}
                                   </p>
                                 </div>
                                 <p className="ai-learning-copy">
                                   {aiGeneratedLearning ??
-                                    "No closed similar tickets yet. Once a comparable ticket is resolved, Qontrol will synthesize the reusable learning here."}
+                                    (usesComplaintSimilarity
+                                      ? "No closed similar claims yet. Once a comparable claim is resolved, Qontrol will synthesize the reusable learning here."
+                                      : "No closed similar tickets yet. Once a comparable ticket is resolved, Qontrol will synthesize the reusable learning here.")}
                                 </p>
                               </div>
                             </>
                           ) : (
                             <p className="story-visual-summary">
-                              No close matches yet. As more routed cases accumulate, this panel will
-                              start surfacing reusable fixes and learnings.
+                              {usesComplaintSimilarity
+                                ? "No complaint-text matches are available yet for this claim."
+                                : "No close matches yet. As more routed cases accumulate, this panel will start surfacing reusable fixes and learnings."}
                             </p>
                           )}
                         </div>
                       </Panel>
-
-                      {selectedCase.imageUrl ? (
-                        <details className="email-collapse">
-                          <summary className="email-collapse-toggle">Defect image</summary>
-                          <div className="email-collapse-content">
-                            <img
-                              alt={`Image for ${selectedCase.id}`}
-                              className="defect-image"
-                              src={`/api/images?path=${encodeURIComponent(selectedCase.imageUrl)}`}
-                            />
-                          </div>
-                        </details>
-                      ) : null}
 
                       <Panel unified title="Timeline" description="Cross-system history and learnings trail.">
                         <div className="timeline">
@@ -1119,194 +1357,6 @@ export function QontrolApp() {
                           ))}
                         </div>
                       </Panel>
-                    </div>
-
-                    <div className="detail-side">
-                      <Panel unified title="Proposed fix" description="Sent into the team board ticket and tracked back into QM.">
-                        <div className="proposed-fix-preview">
-                          <span
-                            aria-label="AI-generated summary"
-                            className="ai-generated-icon"
-                            role="img"
-                            title="AI-generated summary"
-                          >
-                            <svg
-                              aria-hidden="true"
-                              fill="none"
-                              height="14"
-                              stroke="currentColor"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              viewBox="0 0 24 24"
-                              width="14"
-                            >
-                              <path d="M12 3l1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3z" />
-                            </svg>
-                          </span>
-                          <p className="proposed-fix-preview-copy">
-                            {getProposedFixSummary(selectedCase.proposedFix)}
-                          </p>
-                        </div>
-                        <details className="proposed-fix-collapse">
-                          <summary className="proposed-fix-toggle">See fix details</summary>
-                          <div className="proposed-fix-body">
-                            <div className="requested-action">
-                              <div>
-                                <h4>Containment</h4>
-                                <p>{selectedCase.proposedFix.containment}</p>
-                              </div>
-                              <div>
-                                <h4>Permanent fix</h4>
-                                <p>{selectedCase.proposedFix.permanentFix}</p>
-                              </div>
-                              <div>
-                                <h4>Validation ask</h4>
-                                <p>{selectedCase.proposedFix.validation}</p>
-                              </div>
-                              <div>
-                                <h4>Confidence</h4>
-                                <p>{selectedCase.proposedFix.confidence}</p>
-                              </div>
-                              <div>
-                                <h4>Owner confirmation</h4>
-                                <p>{selectedCase.proposedFix.ownerConfirmation}</p>
-                              </div>
-                            </div>
-                            <ul className="bullet-list compact top-gap">
-                              {selectedCase.proposedFix.basis.map((item) => (
-                                <li key={item}>{item}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        </details>
-                      </Panel>
-
-                      <Panel unified title="Routing" description="Who owns the current action and why.">
-                        <div className="stack-list">
-                          <SideRow label="QM owner" value={selectedCase.qmOwner} />
-                          {selectedCase.csOwner ? (
-                            <SideRow label="CS owner" value={selectedCase.csOwner} />
-                          ) : null}
-                          <SideRow label="Technical team" value={selectedCase.ownerTeam} />
-                          {selectedCase.sourceType === "claim" ? (
-                            <SideRow label="Market" value={selectedCase.market} />
-                          ) : null}
-                          <SideRow label="Product" value={`${selectedCase.articleId} / ${selectedCase.partNumber}`} />
-                        </div>
-                      </Panel>
-
-                      <Panel unified title="Follow up now" description="Fast actions for the current case.">
-                        <div className="action-stack">
-                          <button className="secondary-button" onClick={handleSendEmail} type="button">
-                            Send email
-                          </button>
-                          <button className="secondary-button" onClick={handleSetupCall} type="button">
-                            Set up call
-                          </button>
-                          <button className="ghost-button" onClick={handleEscalate} type="button">
-                            Escalate to manager
-                          </button>
-                        </div>
-                      </Panel>
-
-                      <details className="email-collapse">
-                        <summary className="email-collapse-toggle">Assignment email draft</summary>
-                        <div className="email-collapse-content">
-                          <div className="email-meta">
-                            <p><strong>To:</strong> {selectedCase.emailDraft.to.join(", ")}</p>
-                            <p><strong>CC:</strong> {selectedCase.emailDraft.cc.join(", ")}</p>
-                            <p><strong>Subject:</strong> {selectedCase.emailDraft.subject}</p>
-                          </div>
-                          <textarea
-                            className="email-editor"
-                            onChange={(event) => handleEmailChange(event.target.value)}
-                            value={selectedCase.emailDraft.body}
-                          />
-                        </div>
-                      </details>
-
-                      <details className="email-collapse">
-                        <summary className="email-collapse-toggle">
-                          {usesGitHubBoard ? "External board" : "External handoff"}
-                        </summary>
-                        <div className="email-collapse-content">
-                          <p className="email-meta">
-                            {usesGitHubBoard
-                              ? "GitHub issue + board sync for R&D ownership and inbound updates."
-                              : "GitHub issue is shared on route; the downstream team tool stays mocked outside R&D."}
-                          </p>
-                          <div className="stack-list">
-                            <SideRow label="System" value={selectedCase.external?.system ?? "GitHub"} />
-                            <SideRow label="Ticket" value={selectedCase.external?.ticketId ?? "Not created"} />
-                            <SideRow label="Status" value={selectedCase.external?.status ?? "Draft"} />
-                            <SideRow label="Sync" value={selectedCase.external?.sync ?? "awaiting push"} />
-                            <SideRow label="Last external update" value={selectedCase.external?.lastUpdate ?? "None"} />
-                            <SideRow label="Repo" value={selectedCase.external?.repo ?? "Not configured"} />
-                            <SideRow
-                              label="Board"
-                              value={
-                                usesGitHubBoard
-                                  ? selectedCase.external?.projectItemId
-                                    ? "GitHub Project"
-                                    : "Pending board sync"
-                                  : "Skipped outside R&D"
-                              }
-                            />
-                            <SideRow
-                              label="Team tool"
-                              value={usesGitHubBoard ? "GitHub" : mockToolName ?? "Mocked"}
-                            />
-                          </div>
-                          {selectedCase.external?.url ? (
-                            <a
-                              className="secondary-button top-gap inline-action-link"
-                              href={selectedCase.external.url}
-                              rel="noreferrer"
-                              target="_blank"
-                            >
-                              {selectedCase.external.urlLabel}
-                            </a>
-                          ) : null}
-                          <div className="action-stack top-gap">
-                            {usesGitHubBoard ? (
-                              <button
-                                className="secondary-button"
-                                disabled={isMutating}
-                                onClick={handleConnectBoard}
-                                type="button"
-                              >
-                                {selectedCase.external?.issueNumber ? "Update GitHub issue" : "Create GitHub issue"}
-                              </button>
-                            ) : (
-                              <button
-                                className="secondary-button"
-                                disabled={isMutating || !selectedCase.external?.issueNumber}
-                                onClick={handleMockExternalTool}
-                                type="button"
-                              >
-                                {mockToolName ? `Mock ${mockToolName}` : "Mock external handoff"}
-                              </button>
-                            )}
-                            <button
-                              className="ghost-button"
-                              disabled={isMutating || !selectedCase.external?.issueNumber}
-                              onClick={handleSyncGitHub}
-                              type="button"
-                            >
-                              Refresh GitHub sync
-                            </button>
-                            <button
-                              className="ghost-button"
-                              disabled={isMutating || !selectedCase.external?.issueNumber}
-                              onClick={handleBackfillGitHubSummaries}
-                              type="button"
-                            >
-                              Backfill all linked summaries
-                            </button>
-                          </div>
-                        </div>
-                      </details>
 
                       <Panel unified title="Learnings" description="Reusable notes captured during routing and closure.">
                         <ul className="bullet-list compact">
@@ -1841,7 +1891,7 @@ export function QontrolApp() {
               </div>
             </div>
           </div>
-          {isLoading ? <p className="board-status">Loading cases...</p> : null}
+          {isLoading ? <BoardLoadingState /> : null}
           {!isLoading && !hasVisibleCases ? (
             <p className="board-status">
               {allCases.length === 0
@@ -1849,36 +1899,54 @@ export function QontrolApp() {
                 : "No cases match the current filters."}
             </p>
           ) : null}
-          <div className="board-grid">
-            {kanbanCategories.map((column) => {
-              const columnCases = orderedCases.filter(
-                (item) => item.state === column.key,
-              );
+          {!isLoading ? (
+            <div className="board-grid">
+              {kanbanCategories.map((column) => {
+                const columnCases = orderedCases.filter(
+                  (item) => item.state === column.key,
+                );
+                const isExpanded = expandedColumns.has(column.key);
+                const COLUMN_LIMIT = 10;
+                const hasMore = columnCases.length > COLUMN_LIMIT;
+                const visibleCases = isExpanded ? columnCases : columnCases.slice(0, COLUMN_LIMIT);
 
-              return (
-                <div className="board-column" key={column.key}>
-                  <div className="column-header">
-                    <div>
-                      <h3>{column.label}</h3>
-                      <span>{columnCases.length} cases</span>
+                return (
+                  <div className="board-column" key={column.key}>
+                    <div className="column-header">
+                      <div>
+                        <h3>{column.label}</h3>
+                        <span>{columnCases.length} cases</span>
+                      </div>
                     </div>
+                    <div className={`column-cards ${!isExpanded && hasMore ? "column-cards-faded" : ""}`}>
+                      {visibleCases.map((item) => (
+                        <TicketCard
+                          key={item.id}
+                          item={item}
+                          isSelected={selectedId === item.id}
+                          onSelect={handleTicketSelect}
+                        />
+                      ))}
+                    </div>
+                    {hasMore && !isExpanded ? (
+                      <button
+                        className="show-more-button"
+                        onClick={() =>
+                          setExpandedColumns((prev) => new Set([...prev, column.key]))
+                        }
+                        type="button"
+                      >
+                        Show more ({columnCases.length - COLUMN_LIMIT} remaining)
+                      </button>
+                    ) : null}
                   </div>
-                  <div className="column-cards">
-                    {columnCases.map((item) => (
-                      <TicketCard
-                        key={item.id}
-                        item={item}
-                        isSelected={selectedId === item.id}
-                        onSelect={handleTicketSelect}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
       </section>
+
     </main>
   );
 }
@@ -2116,6 +2184,40 @@ function MetricBlock({
   );
 }
 
+function BoardLoadingState() {
+  return (
+    <div aria-live="polite" className="board-loading" role="status">
+      <div className="board-loading-header">
+        <span aria-hidden="true" className="routing-loading-indicator">
+          <span className="routing-spinner board-loading-spinner" />
+          <span className="routing-loading-label">Loading cases...</span>
+        </span>
+        <p className="board-loading-copy">
+          Qontrol is pulling the latest case data and similarity context. This can take a few
+          seconds.
+        </p>
+      </div>
+      <div aria-hidden="true" className="board-loading-columns">
+        {kanbanCategories.map((column) => (
+          <div className="board-loading-column" key={column.key}>
+            <div className="column-header">
+              <div>
+                <h3>{column.label}</h3>
+                <span>Loading...</span>
+              </div>
+            </div>
+            <div className="column-cards">
+              {[0, 1, 2].map((index) => (
+                <div className="pf-skeleton board-loading-card" key={`${column.key}-${index}`} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SideRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="side-row">
@@ -2224,6 +2326,75 @@ function getFilterSummary<T extends string>(
   return `${selected.length} selected`;
 }
 
+function matchesBoardFilters(
+  item: QontrolCase,
+  filters: BoardFilters,
+  topDefectTypes: string[],
+  ignoredKey?: keyof BoardFilters,
+) {
+  if (
+    ignoredKey !== "sourceTypes" &&
+    filters.sourceTypes.length > 0 &&
+    !filters.sourceTypes.includes(item.sourceType)
+  ) {
+    return false;
+  }
+  if (
+    ignoredKey !== "stories" &&
+    filters.stories.length > 0 &&
+    !filters.stories.includes(item.story)
+  ) {
+    return false;
+  }
+  if (
+    ignoredKey !== "defectTypes" &&
+    filters.defectTypes.length > 0 &&
+    !matchesDefectTypeFilter(item.defectType, filters.defectTypes, topDefectTypes)
+  ) {
+    return false;
+  }
+  if (
+    ignoredKey !== "responsibleTeams" &&
+    filters.responsibleTeams.length > 0 &&
+    !filters.responsibleTeams.includes(item.responsibleTeam)
+  ) {
+    return false;
+  }
+  if (
+    ignoredKey !== "clarities" &&
+    filters.clarities.length > 0 &&
+    !filters.clarities.includes(item.clarity)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function getContextualCases(
+  items: QontrolCase[],
+  filters: BoardFilters,
+  topDefectTypes: string[],
+  ignoredKey: keyof BoardFilters,
+) {
+  return items.filter((item) => matchesBoardFilters(item, filters, topDefectTypes, ignoredKey));
+}
+
+function getOrderedFilterOptions<T extends string>(
+  orderedValues: T[],
+  items: QontrolCase[],
+  getValue: (item: QontrolCase) => T,
+  selected: T[],
+) {
+  const selectedSet = new Set(selected);
+  return orderedValues.filter(
+    (value) => selectedSet.has(value) || items.some((item) => getValue(item) === value),
+  );
+}
+
+function mergeFilterOptions<T extends string>(options: T[], selected: T[]) {
+  return [...options, ...selected.filter((value) => !options.includes(value))];
+}
+
 function getTopDefectTypes(items: QontrolCase[]) {
   const counts = new Map<string, number>();
   for (const item of items) {
@@ -2326,6 +2497,15 @@ function formatOutcomeLabel(outcome: SimilarTicket["outcome"]) {
 }
 
 function getRouteableSimilarCases(selectedCase: QontrolCase, allCases: QontrolCase[]) {
+  if (selectedCase.sourceType === "claim") {
+    const caseById = new Map(allCases.map((candidate) => [candidate.id, candidate]));
+    return selectedCase.similarClaimIds.flatMap((claimId) => {
+      const candidate = caseById.get(claimId);
+      if (!candidate || candidate.state === "closed") return [];
+      return [candidate];
+    });
+  }
+
   return allCases.filter((candidate) => {
     if (candidate.id === selectedCase.id) return false;
     if (candidate.state === "closed") return false;

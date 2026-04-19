@@ -1,0 +1,429 @@
+{
+  "mode": "fallback",
+  "generatedAt": "2026-03-30T12:00:00.000Z",
+  "context": {
+    "as_of": "2026-03-30T12:00:00.000Z",
+    "range": null,
+    "baselines": {
+      "article_rates": [
+        {
+          "article_id": "ART-00001",
+          "article_name": "Radio-A",
+          "rate_4wk": 0.081,
+          "median_12wk": 0.052,
+          "delta_pct": 55.77,
+          "is_anomaly": true
+        },
+        {
+          "article_id": "ART-00002",
+          "article_name": "Radio-B",
+          "rate_4wk": 0.041,
+          "median_12wk": 0.04,
+          "delta_pct": 2.5,
+          "is_anomaly": false
+        }
+      ],
+      "section_counts": [
+        {
+          "section_name": "Montage Linie 1",
+          "count_4wk": 42,
+          "mean_12wk": 4.2,
+          "std_12wk": 1.8,
+          "z_score": 6.97,
+          "is_anomaly": true,
+          "is_detection_station": false
+        },
+        {
+          "section_name": "Pruefung Linie 2",
+          "count_4wk": 68,
+          "mean_12wk": 12.0,
+          "std_12wk": 4.1,
+          "z_score": 2.44,
+          "is_anomaly": false,
+          "is_detection_station": true
+        }
+      ],
+      "batch_cohorts": [
+        {
+          "batch_id": "SB-00007",
+          "batch_number": "B-2025-10-ELP-100UF",
+          "supplier": "ElektroParts GmbH",
+          "part_number": "PM-00008",
+          "part_title": "100uF capacitor",
+          "batch_products": 48,
+          "defective_products": 17,
+          "batch_rate": 0.354,
+          "supplier_peer_median_rate": 0.035,
+          "multiple": 10.11,
+          "is_anomaly": true
+        }
+      ],
+      "lag_shifts": [
+        {
+          "article_id": "ART-00001",
+          "article_name": "Radio-A",
+          "this_month_dist": { "0-4 wk": 2, "4-8 wk": 3, "8-12 wk": 7, "12+ wk": 1 },
+          "trailing_3mo_dist": { "0-4 wk": 14, "4-8 wk": 18, "8-12 wk": 6, "12+ wk": 3 },
+          "shift_score": 138.0,
+          "is_anomaly": true,
+          "this_month_key": "2026-03"
+        }
+      ],
+      "operator_concentration": [
+        {
+          "order_id": "ORD-00042",
+          "top_operator": "op_U014",
+          "share": 0.72,
+          "top_defect_codes": ["VISUAL_SCRATCH", "LABEL_MISALIGN"],
+          "cosmetic_dominant": true,
+          "is_anomaly": true
+        }
+      ],
+      "cost_ribbon": {
+        "current_weekly": 18420,
+        "oct_baseline": 9850,
+        "delta_pct": 87.0,
+        "delta_usd": 8570,
+        "trajectory": [
+          { "week_start": "2025-10-06", "defects_cost": 4800, "claims_cost": 3200, "rework_cost": 1600, "total": 9600 },
+          { "week_start": "2025-10-13", "defects_cost": 5100, "claims_cost": 3300, "rework_cost": 1700, "total": 10100 },
+          { "week_start": "2025-10-20", "defects_cost": 4950, "claims_cost": 3250, "rework_cost": 1700, "total": 9900 },
+          { "week_start": "2025-10-27", "defects_cost": 4900, "claims_cost": 3200, "rework_cost": 1700, "total": 9800 },
+          { "week_start": "2026-03-23", "defects_cost": 9200, "claims_cost": 6800, "rework_cost": 2420, "total": 18420 }
+        ]
+      }
+    },
+    "past_decisions": [
+      {
+        "initiative_id": "INI-00001",
+        "title": "Switched to ElektroParts GmbH for PM-00008 100uF capacitors",
+        "kind": "supplier_switch",
+        "status": "completed",
+        "decided_at": "2025-10-15T09:00:00Z",
+        "effective_from": "2025-10-22T00:00:00Z",
+        "owner": "Supply Chain",
+        "target_scope": {
+          "part_number": "PM-00008",
+          "new_supplier": "ElektroParts GmbH",
+          "previous_supplier": "KondensatorWerk AG"
+        },
+        "expected_impact": {
+          "unit_cost_delta_pct": -18,
+          "expected_quality_impact": "neutral"
+        },
+        "reasoning": "Approved supplier change driven by 18% unit-cost reduction at equivalent spec.",
+        "estimated_cost": 0,
+        "source": "seeded",
+        "linked_case_ids": [],
+        "deck_url": null,
+        "created_at": "2025-10-15T09:00:00Z",
+        "updated_at": "2025-10-15T09:00:00Z",
+        "impact": {
+          "initiative_id": "INI-00001",
+          "target_kpi": "batch_rate",
+          "target_kpi_label": "Defect rate for PM-00008 sourced from ElektroParts GmbH",
+          "pre_value": 0.03,
+          "post_value": 0.34,
+          "delta_pct": 1033.0,
+          "trajectory_points": [
+            { "week_start": "2025-10-06", "value": 0.02, "is_post": false },
+            { "week_start": "2025-10-13", "value": 0.04, "is_post": false },
+            { "week_start": "2025-10-27", "value": 0.31, "is_post": true },
+            { "week_start": "2025-11-03", "value": 0.37, "is_post": true }
+          ],
+          "insufficient_data": false
+        }
+      },
+      {
+        "initiative_id": "INI-00002",
+        "title": "Recalibrated torque wrench at Montage Linie 1",
+        "kind": "recalibration",
+        "status": "completed",
+        "decided_at": "2026-01-05T08:30:00Z",
+        "effective_from": "2026-01-08T00:00:00Z",
+        "owner": "Manufacturing / Process",
+        "target_scope": {
+          "section_name": "Montage Linie 1",
+          "defect_code": "VIB_FAIL",
+          "equipment": "torque wrench"
+        },
+        "expected_impact": {
+          "expected_vib_fail_reduction_pct": -100,
+          "expected_effective_weeks": 2
+        },
+        "reasoning": "VIB_FAIL cluster triggered torque-wrench recalibration.",
+        "estimated_cost": 0,
+        "source": "seeded",
+        "linked_case_ids": [],
+        "deck_url": null,
+        "created_at": "2026-01-05T08:30:00Z",
+        "updated_at": "2026-01-05T08:30:00Z",
+        "impact": {
+          "initiative_id": "INI-00002",
+          "target_kpi": "section_count",
+          "target_kpi_label": "VIB_FAIL defects at Montage Linie 1",
+          "pre_value": 18,
+          "post_value": 1,
+          "delta_pct": -94.4,
+          "trajectory_points": [
+            { "week_start": "2025-12-15", "value": 5, "is_post": false },
+            { "week_start": "2025-12-22", "value": 6, "is_post": false },
+            { "week_start": "2025-12-29", "value": 4, "is_post": false },
+            { "week_start": "2026-01-05", "value": 3, "is_post": false },
+            { "week_start": "2026-01-12", "value": 1, "is_post": true },
+            { "week_start": "2026-01-19", "value": 0, "is_post": true }
+          ],
+          "insufficient_data": false
+        }
+      }
+    ],
+    "anomaly_candidates": [
+      {
+        "kind": "article_rate",
+        "article_id": "ART-00001",
+        "article_name": "Radio-A",
+        "rate_4wk": 0.081,
+        "median_12wk": 0.052,
+        "delta_pct": 55.77,
+        "is_anomaly": true
+      },
+      {
+        "kind": "section_count",
+        "section_name": "Montage Linie 1",
+        "count_4wk": 42,
+        "mean_12wk": 4.2,
+        "std_12wk": 1.8,
+        "z_score": 6.97,
+        "is_anomaly": true,
+        "is_detection_station": false
+      },
+      {
+        "kind": "batch_cohort",
+        "batch_id": "SB-00007",
+        "batch_number": "B-2025-10-ELP-100UF",
+        "supplier": "ElektroParts GmbH",
+        "part_number": "PM-00008",
+        "part_title": "100uF capacitor",
+        "batch_products": 48,
+        "defective_products": 17,
+        "batch_rate": 0.354,
+        "supplier_peer_median_rate": 0.035,
+        "multiple": 10.11,
+        "is_anomaly": true
+      },
+      {
+        "kind": "lag_shift",
+        "article_id": "ART-00001",
+        "article_name": "Radio-A",
+        "this_month_dist": { "0-4 wk": 2, "4-8 wk": 3, "8-12 wk": 7, "12+ wk": 1 },
+        "trailing_3mo_dist": { "0-4 wk": 14, "4-8 wk": 18, "8-12 wk": 6, "12+ wk": 3 },
+        "shift_score": 138.0,
+        "is_anomaly": true,
+        "this_month_key": "2026-03"
+      },
+      {
+        "kind": "operator",
+        "order_id": "ORD-00042",
+        "top_operator": "op_U014",
+        "share": 0.72,
+        "top_defect_codes": ["VISUAL_SCRATCH", "LABEL_MISALIGN"],
+        "cosmetic_dominant": true,
+        "is_anomaly": true
+      }
+    ]
+  },
+  "signals": [
+    {
+      "id": "sig_batch_SB-00007",
+      "kind": "batch_cohort",
+      "title": "ElektroParts GmbH · PM-00008 · batch B-2025-10-ELP-100UF: 10.1x peer median",
+      "caption": "Batch SB-00007 from ElektroParts GmbH (PM-00008 100uF cap) is running at 35.4% defect rate -- 10x the peer-batch median for this supplier/part. This coincides with the October supplier switch that approved ElektroParts with a neutral quality expectation.",
+      "severity": "critical",
+      "linked_past_decision_id": "INI-00001",
+      "evidence_refs": ["SB-00007", "PM-00008", "ElektroParts GmbH"]
+    },
+    {
+      "id": "sig_section_Montage_Linie_1",
+      "kind": "section_count",
+      "title": "Montage Linie 1: defect count 7.0 sigma above trend",
+      "caption": "Montage Linie 1 has logged 42 defects in the last 4 weeks vs a weekly average of 4.2. VIB_FAIL dominates the recent cluster. Last time we saw this, a torque-wrench recalibration cleared it.",
+      "severity": "critical",
+      "linked_past_decision_id": "INI-00002",
+      "evidence_refs": ["Montage Linie 1", "VIB_FAIL"]
+    },
+    {
+      "id": "sig_lag_ART-00001",
+      "kind": "lag_shift",
+      "title": "Radio-A: 8-12wk field-lag share up 138%",
+      "caption": "Claims landing 8-12 weeks after build for Radio-A more than doubled vs the trailing three-month share. This suggests a latent failure mode rather than infant mortality -- likely downstream of the October supplier cohort.",
+      "severity": "medium",
+      "linked_past_decision_id": "INI-00001",
+      "evidence_refs": ["ART-00001"]
+    },
+    {
+      "id": "sig_article_ART-00001",
+      "kind": "article_rate",
+      "title": "Radio-A: 4wk defect rate 56% above 12wk median",
+      "caption": "Radio-A's rolling 4-week defect rate has drifted 56% above its 12-week median. Largely explained by the PM-00008 cohort flowing into assembly.",
+      "severity": "medium",
+      "linked_past_decision_id": "INI-00001",
+      "evidence_refs": ["ART-00001"]
+    },
+    {
+      "id": "sig_operator_ORD-00042",
+      "kind": "operator",
+      "title": "Order ORD-00042: 72% of rework by op_U014",
+      "caption": "72% of rework events on order ORD-00042 are attributed to operator op_U014, and the codes are cosmetic (VISUAL_SCRATCH, LABEL_MISALIGN). Likely a training/handling issue rather than a product defect.",
+      "severity": "low",
+      "linked_past_decision_id": null,
+      "evidence_refs": ["ORD-00042", "op_U014", "VISUAL_SCRATCH", "LABEL_MISALIGN"]
+    }
+  ],
+  "decision_echoes": [
+    {
+      "initiative_id": "INI-00001",
+      "narrative": "The October switch to ElektroParts GmbH for PM-00008 was approved for an 18% unit-cost savings with neutral expected quality. The post-switch cohort is running at ~34% defect rate vs ~3% before -- a material quality regression that outweighs the cost savings.",
+      "direction": "worsened"
+    },
+    {
+      "initiative_id": "INI-00002",
+      "narrative": "Torque-wrench recalibration at Montage Linie 1 cut VIB_FAIL defects ~94% within two weeks. The fix held until the current re-emergence in late March.",
+      "direction": "improved"
+    }
+  ],
+  "recommendations": [
+    {
+      "id": "rec_1",
+      "title": "Rollback or re-qualify ElektroParts GmbH for PM-00008",
+      "kind": "supplier_switch",
+      "reasoning": "The measured post-switch defect rate (34%) far exceeds the neutral quality expectation of the original approval. Expected field-cost exposure outweighs the 18% unit-cost savings by ~5x on the current run-rate.",
+      "target_scope": {
+        "part_number": "PM-00008",
+        "current_supplier": "ElektroParts GmbH",
+        "candidate_action": "revert_to_KondensatorWerk_AG_or_requalify"
+      },
+      "expected_impact": {
+        "expected_defect_rate_post": 0.03,
+        "estimated_weekly_cost_avoidance_usd": "est. $8,500 (derived from cost_ribbon delta)"
+      },
+      "estimated_cost": "est. $4k-$8k (re-qualification + tooling)",
+      "confidence": "high",
+      "actions": [
+        {
+          "id": "act_1",
+          "label": "Revert PM-00008 sourcing to KondensatorWerk AG for next run",
+          "detail": "Immediate stop-ship on ElektroParts PM-00008; reinstate KondensatorWerk AG as primary source for the next production order.",
+          "kind": "supplier_switch",
+          "target_scope": {
+            "part_number": "PM-00008",
+            "new_supplier": "KondensatorWerk AG"
+          },
+          "estimated_cost": "est. $3k-$5k (rush re-order premium)"
+        },
+        {
+          "id": "act_2",
+          "label": "Tighten incoming-quality sampling on ElektroParts lots to 100%",
+          "detail": "Until a re-qualification decision is made, move from default AQL sampling to 100% screening on any remaining ElektroParts PM-00008 inventory.",
+          "kind": "process_control",
+          "target_scope": {
+            "part_number": "PM-00008",
+            "supplier": "ElektroParts GmbH",
+            "sampling": "100%"
+          },
+          "estimated_cost": "est. $1k-$2k (inspection time)"
+        },
+        {
+          "id": "act_3",
+          "label": "Notify Customer Service of elevated 8-12wk field failure risk",
+          "detail": "Heads-up to CS so they can pre-stage replacement units and scripted responses for claims on the PM-00008 cohort.",
+          "kind": "other",
+          "target_scope": {
+            "article_id": "ART-00001",
+            "expected_claim_lag_bucket": "8-12 wk"
+          },
+          "estimated_cost": "est. $0 (ops coordination)"
+        }
+      ]
+    },
+    {
+      "id": "rec_2",
+      "title": "Re-run torque-wrench calibration at Montage Linie 1",
+      "kind": "recalibration",
+      "reasoning": "VIB_FAIL has re-emerged 11 weeks after INI-00002. A recurring calibration cadence (every 10-12 weeks) would avoid the relapse pattern.",
+      "target_scope": {
+        "section_name": "Montage Linie 1",
+        "defect_code": "VIB_FAIL",
+        "equipment": "torque wrench"
+      },
+      "expected_impact": {
+        "expected_vib_fail_reduction_pct": -95,
+        "expected_effective_weeks": 10
+      },
+      "estimated_cost": "est. $500-$1.5k (one-shift calibration)",
+      "confidence": "high",
+      "actions": [
+        {
+          "id": "act_1",
+          "label": "Schedule torque-wrench recalibration this week",
+          "detail": "One-shift calibration of the torque wrench at Montage Linie 1, same procedure as INI-00002.",
+          "kind": "recalibration",
+          "target_scope": {
+            "section_name": "Montage Linie 1",
+            "equipment": "torque wrench"
+          },
+          "estimated_cost": "est. $500-$1.5k"
+        },
+        {
+          "id": "act_2",
+          "label": "Add a standing 10-week calibration cadence",
+          "detail": "Put torque-wrench calibration on a 10-week recurring maintenance cadence so the relapse pattern does not repeat.",
+          "kind": "process_control",
+          "target_scope": {
+            "section_name": "Montage Linie 1",
+            "cadence_weeks": 10
+          },
+          "estimated_cost": "est. $2k/year (recurring)"
+        }
+      ]
+    },
+    {
+      "id": "rec_3",
+      "title": "Operator retrain for cosmetic-defect orders",
+      "kind": "training",
+      "reasoning": "Orders with >60% rework concentrated on one operator and cosmetic-only codes correlate with handling technique, not product design. A 2-hour refresher on VISUAL_SCRATCH / LABEL_MISALIGN avoidance pays back quickly.",
+      "target_scope": {
+        "target_codes": ["VISUAL_SCRATCH", "LABEL_MISALIGN"],
+        "target_operators": ["op_U014"]
+      },
+      "expected_impact": {
+        "expected_rework_reduction_pct": -50
+      },
+      "estimated_cost": "est. $1k-$2k (training time)",
+      "confidence": "medium",
+      "actions": [
+        {
+          "id": "act_1",
+          "label": "2-hour handling refresher for op_U014",
+          "detail": "Targeted refresher on VISUAL_SCRATCH / LABEL_MISALIGN avoidance for the operator with 72% rework share on ORD-00042.",
+          "kind": "training",
+          "target_scope": {
+            "target_operators": ["op_U014"],
+            "target_codes": ["VISUAL_SCRATCH", "LABEL_MISALIGN"]
+          },
+          "estimated_cost": "est. $500-$1k"
+        },
+        {
+          "id": "act_2",
+          "label": "Audit handling SOP across the shift",
+          "detail": "Walk the line with the shift lead and confirm packaging / label-application SOP is being followed; update the SOP if needed.",
+          "kind": "process_control",
+          "target_scope": {
+            "section_name": "Verpackung Linie 1",
+            "shift": "current"
+          },
+          "estimated_cost": "est. $500-$1k"
+        }
+      ]
+    }
+  ]
+}

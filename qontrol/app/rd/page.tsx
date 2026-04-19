@@ -2,18 +2,11 @@ import { RdPortfolio } from "@/components/rd/rd-portfolio";
 import {
   lastNDaysRangeUtc,
   parseRangeFromSearchParams,
-  previousUtcRangeInclusive,
   utcBoundsFromDays,
   type UtcDay,
   type UtcRange,
 } from "@/lib/date-range";
-import { listRdCases } from "@/lib/db/cases";
-import {
-  fetchClaimsForRd,
-  fetchDefectsForRd,
-  listRecentRdDecisions,
-} from "@/lib/db/rd";
-import { fetchInitiatives } from "@/lib/portfolio-data";
+import { getRdPortfolioSnapshot } from "@/lib/rd-portfolio";
 
 export const dynamic = "force-dynamic";
 
@@ -60,33 +53,19 @@ export default async function RdHomePage({ searchParams }: PageProps) {
     parsed.range === null ? toUtcRange(seven.from, seven.to) : parsed.range;
 
   try {
-    const allCases = await listRdCases();
-    const cases = allCases.filter(
-      (c) =>
-        c.lastUpdateAt >= effectiveRange.startIso && c.lastUpdateAt <= effectiveRange.endIso,
-    );
-
-    const prevRange = previousUtcRangeInclusive(effectiveRange);
-
-    const [claims, defects, recentDecisions, claimsPrevious, initiatives] = await Promise.all([
-      fetchClaimsForRd(200, effectiveRange),
-      fetchDefectsForRd(300, effectiveRange),
-      listRecentRdDecisions(10, effectiveRange),
-      fetchClaimsForRd(2000, prevRange),
-      fetchInitiatives(effectiveRange),
-    ]);
+    const snapshot = await getRdPortfolioSnapshot(effectiveRange);
 
     return (
       <RdPortfolio
-        cases={cases}
-        claims={claims}
-        claimsPrevious={claimsPrevious}
-        defects={defects}
-        initiatives={initiatives}
-        recentDecisions={recentDecisions}
+        cases={snapshot.cases}
+        claims={snapshot.claims}
+        claimsPrevious={snapshot.claimsPrevious}
+        defects={snapshot.defects}
+        initiatives={snapshot.initiatives}
+        recentDecisions={snapshot.recentDecisions}
         filter={sp.filter ?? null}
         part={sp.part ?? null}
-        timeRange={{ from: effectiveRange.from, to: effectiveRange.to }}
+        timeRange={snapshot.timeRange}
       />
     );
   } catch (err) {

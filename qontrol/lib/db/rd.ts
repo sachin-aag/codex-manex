@@ -306,6 +306,22 @@ export async function listRecentRdDecisions(
   });
 }
 
+export async function fetchInitiativesForRd(
+  limit = 500,
+  range?: UtcRange | null,
+): Promise<ProductActionRow[]> {
+  const queryAppend = range
+    ? timestampRangeAppend("ts", range.startIso, range.endIso)
+    : undefined;
+  return postgrestRequest<ProductActionRow[]>("product_action", {
+    query: {
+      order: "ts.desc",
+      limit: String(limit),
+    },
+    queryAppend,
+  });
+}
+
 export async function listRdDecisionsForCase(caseId: string): Promise<ProductActionRow[]> {
   return postgrestRequest<ProductActionRow[]>("product_action", {
     query: {

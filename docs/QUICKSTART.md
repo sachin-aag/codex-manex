@@ -43,7 +43,7 @@ toolkit. Use this when REST query shapes get painful.
 Studio is protected with HTTP Basic Auth. Use the `Studio Login` credentials
 from your handout before you can access the dashboard.
 
-## 4. Direct Postgres ´
+## 4. Direct Postgres
 
 ```bash
 psql "postgres://team_writer_alpha:<pw>@<vm>:5431/hackathon"

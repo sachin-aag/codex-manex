@@ -12,7 +12,13 @@ import {
   type TimeRangeValue,
 } from "@/components/portfolio-time-range";
 import { QualityBriefingPanel } from "@/components/quality-briefing-panel";
-import { lastNDaysRangeUtc } from "@/lib/date-range";
+import {
+  DEFAULT_PORTFOLIO_RANGE,
+  getCachedPortfolioBundle,
+  isPortfolioBundleFresh,
+  loadPortfolioBundle,
+  type PortfolioPayload,
+} from "@/lib/client/portfolio-preload";
 import type { DashboardKpis } from "@/lib/db/kpis";
 
 type KpiTone = "good" | "warn" | "bad" | "neutral";
@@ -35,70 +41,53 @@ function toneAvgDays(d: number | null): KpiTone {
   if (d > 5) return "bad";
   return "warn";
 }
-import type {
-  BatchRankingRow,
-  ClaimLagRow,
-  ClaimScatterPoint,
-  CostBreakdownData,
-  ParetoRow,
-  SectionHeatmapData,
-  SeverityStackRow,
-  SeverityTotals,
-  WeeklyTrendPoint,
-} from "@/lib/portfolio-data";
-
-type PortfolioPayload = {
-  range?: { from: string; to: string } | null;
-  pareto: ParetoRow[];
-  weeklyRollup: WeeklyTrendPoint[];
-  claimLag: ClaimLagRow[];
-  sectionHeatmap: SectionHeatmapData;
-  severityByOccurrence: SeverityStackRow[];
-  costBreakdown: CostBreakdownData;
-  claimScatter: ClaimScatterPoint[];
-  bomBatchRanking: BatchRankingRow[];
-  severityTotals?: SeverityTotals;
-};
 
 export default function PortfolioPage() {
-  const [data, setData] = useState<PortfolioPayload | null>(null);
-  const [dashKpis, setDashKpis] = useState<DashboardKpis | null>(null);
+  const initialBundle = getCachedPortfolioBundle(DEFAULT_PORTFOLIO_RANGE);
+  const [data, setData] = useState<PortfolioPayload | null>(
+    initialBundle?.portfolio ?? null,
+  );
+  const [dashKpis, setDashKpis] = useState<DashboardKpis | null>(
+    initialBundle?.kpis ?? null,
+  );
   const [err, setErr] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRangeValue>(() =>
-    lastNDaysRangeUtc(7),
+    DEFAULT_PORTFOLIO_RANGE,
   );
-  const [isFetching, setIsFetching] = useState(true);
+  const [isFetching, setIsFetching] = useState(initialBundle == null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setIsFetching(true);
+      const effectiveRange = timeRange ?? DEFAULT_PORTFOLIO_RANGE;
       setErr(null);
+      const cachedBundle = getCachedPortfolioBundle(effectiveRange);
+      const cachedIsFresh = isPortfolioBundleFresh(effectiveRange);
+
+      if (cachedBundle) {
+        setData(cachedBundle.portfolio);
+        setDashKpis(cachedBundle.kpis);
+      }
+
+      if (cachedBundle && cachedIsFresh) {
+        setIsFetching(false);
+        return;
+      }
+
+      setIsFetching(true);
       try {
-        const qs =
-          timeRange == null
-            ? ""
-            : `?from=${encodeURIComponent(timeRange.from)}&to=${encodeURIComponent(timeRange.to)}`;
-        const [resPortfolio, resKpis] = await Promise.all([
-          fetch(`/api/portfolio${qs}`),
-          fetch(`/api/cases/kpis${qs}`),
-        ]);
-        if (!resPortfolio.ok) {
-          const j = await resPortfolio.json().catch(() => ({}));
-          throw new Error(j.error ?? j.details ?? "Failed to load portfolio");
-        }
-        if (!resKpis.ok) {
-          const j = await resKpis.json().catch(() => ({}));
-          throw new Error(j.error ?? j.details ?? "Failed to load KPIs");
-        }
-        const json = (await resPortfolio.json()) as PortfolioPayload;
-        if (!cancelled) setData(json);
+        const bundle = await loadPortfolioBundle(effectiveRange, {
+          force: cachedBundle != null && !cachedIsFresh,
+        });
         if (!cancelled) {
-          setDashKpis((await resKpis.json()) as DashboardKpis);
+          setData(bundle.portfolio);
+          setDashKpis(bundle.kpis);
         }
       } catch (e) {
         if (!cancelled) {
-          setErr(e instanceof Error ? e.message : "Error loading data");
+          if (!cachedBundle) {
+            setErr(e instanceof Error ? e.message : "Error loading data");
+          }
         }
       } finally {
         if (!cancelled) setIsFetching(false);

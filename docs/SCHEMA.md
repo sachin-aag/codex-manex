@@ -14,7 +14,7 @@ erDiagram
   CONFIGURATION ||--o{ BOM      : drives
 
   BOM ||--o{ BOM_NODE           : contains
-  BOM_NODE }o--o{ BOM_NODE      : parent_of
+  BOM_NODE o|--o{ BOM_NODE      : parent_of
   PART_MASTER ||--o{ BOM_NODE   : referenced_part
   PART_MASTER ||--o{ SUPPLIER_BATCH : batched_as
   PART_MASTER ||--o{ PART       : typed_as
@@ -28,29 +28,30 @@ erDiagram
 
   PRODUCT ||--o{ PRODUCT_PART_INSTALL : installed_parts
   PART ||--o{ PRODUCT_PART_INSTALL    : installed_as
-  BOM_NODE }o--o{ PRODUCT_PART_INSTALL : fulfills_node
+  BOM_NODE o|--o{ PRODUCT_PART_INSTALL : fulfills_node
   SECTION ||--o{ PRODUCT_PART_INSTALL  : installed_in
 
   SECTION ||--o{ TEST           : owns
-  PART_MASTER }o--o{ TEST       : targets_part
+  PART_MASTER o|--o{ TEST       : targets_part
   TEST ||--o{ TEST_RESULT       : produces
   PRODUCT ||--o{ TEST_RESULT    : has_tests
   SECTION ||--o{ TEST_RESULT    : executed_at
 
   PRODUCT ||--o{ DEFECT         : has
   SECTION ||--o{ DEFECT         : detected_at
-  TEST_RESULT }o--o{ DEFECT     : detected_by
-  PART_MASTER }o--o{ DEFECT     : reported_on_part
+  SECTION ||--o{ DEFECT         : occurred_at
+  TEST_RESULT o|--o{ DEFECT     : detected_by
+  PART_MASTER o|--o{ DEFECT     : reported_on_part
 
   PRODUCT ||--o{ FIELD_CLAIM    : has_claims
-  DEFECT }o--o{ FIELD_CLAIM     : mapped_to_defect
-  PART_MASTER }o--o{ FIELD_CLAIM : reported_on_part
+  DEFECT o|--o{ FIELD_CLAIM     : mapped_to_defect
+  PART_MASTER o|--o{ FIELD_CLAIM : reported_on_part
 
   DEFECT ||--o{ REWORK          : corrected_by
   PRODUCT ||--o{ REWORK         : has
 
   PRODUCT ||--o{ PRODUCT_ACTION : action_log
-  DEFECT }o--o{ PRODUCT_ACTION  : references_defect
+  DEFECT o|--o{ PRODUCT_ACTION  : references_defect
 ```
 
 ## ID conventions
@@ -98,7 +99,8 @@ Fields: `defect_id`, `product_id`, `ts`, `source_type`, `defect_code`,
 External quality event. Customer reported failure post-ship.
 
 Fields: `field_claim_id`, `product_id`, `claim_ts`, `market`,
-`complaint_text` (German), `reported_part_number`, `image_url`, `cost`,
+`complaint_text` (German),
+`reported_part_number`, `image_url`, `cost`,
 `detected_section_id`, `mapped_defect_id`, `notes`.
 
 ### TEST_RESULT
@@ -148,15 +150,19 @@ Fields: `install_id`, `product_id`, `part_id`, `bom_node_id`,
 `factory`, `line`, `section`, `article`, `configuration`, `bom`,
 `part_master`, `supplier_batch`, `part`, `production_order`.
 
-See the migration file
+See the migration files
 [supabase/migrations/00001_create_schema.sql](../supabase/migrations/00001_create_schema.sql)
-for exact column definitions.
+for exact table definitions and
+[supabase/migrations/00002_create_views.sql](../supabase/migrations/00002_create_views.sql)
+for the convenience-view joins.
 
 ## Views
 
 - `v_defect_detail` — defect + product + article + detected/occurrence sections + reported part + test.
 - `v_product_bom_parts` — installed parts per product with batch + supplier.
 - `v_field_claim_detail` — claim + product + mapped defect + part + section + `days_from_build`.
+
+Claim-to-claim similarity is now computed in the app at request time from complaint-text embeddings, rather than persisted in the database schema.
 - `v_quality_summary` — weekly rollup per article.
 
 ## DB roles

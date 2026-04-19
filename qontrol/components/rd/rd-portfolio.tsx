@@ -16,8 +16,6 @@ import {
   lagDistribution,
   longLagFcs,
 } from "@/lib/db/rd";
-import type { InitiativeRow } from "@/lib/portfolio-data";
-
 import { RdBriefingPanel } from "@/components/rd-briefing-panel";
 import {
   PortfolioTimeRange,
@@ -37,7 +35,7 @@ type Props = {
   claims: ClaimLagRow[];
   claimsPrevious: ClaimLagRow[];
   defects: DefectHistoryRow[];
-  initiatives: InitiativeRow[];
+  initiatives: ProductActionRow[];
   recentDecisions: ProductActionRow[];
   filter: string | null;
   part: string | null;

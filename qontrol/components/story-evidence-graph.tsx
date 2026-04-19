@@ -78,6 +78,21 @@ function formatShortDate(value: string | null) {
   }).format(new Date(value));
 }
 
+function compactGraphValue(value: string) {
+  return value.replaceAll("\n", " · ");
+}
+
+function compactGraphFact(facts: Array<{ label: string; value: string }>) {
+  const priority = ["Measurement", "Deviation", "Relevant info", "Observed at"];
+
+  for (const label of priority) {
+    const fact = facts.find((item) => item.label === label);
+    if (fact) return fact;
+  }
+
+  return facts[0] ?? null;
+}
+
 function reachableNodeIds(
   edges: StoryGraphEdge[],
   startId: string,
@@ -812,11 +827,18 @@ export function StoryEvidenceGraph({ visualization }: Props) {
     blueprint.nodes.find((node) => node.id === selectedId) ??
     blueprint.nodes.find((node) => node.id === blueprint.initialSelectedId) ??
     blueprint.nodes[0];
+  const detailFact = compactGraphFact(selectedNode?.facts ?? []);
 
   return (
     <div className="story-graph-shell">
       <div className="story-graph-toolbar">
-        <p>Click a node to inspect the evidence path.</p>
+        <div className="story-graph-toolbar-copy">
+          <h4>Causal evidence graph</h4>
+          <p>
+            Interactive hypothesis map showing the strongest evidence path for the
+            current case.
+          </p>
+        </div>
       </div>
       <div
         className="story-graph-canvas-wrap"
@@ -829,6 +851,7 @@ export function StoryEvidenceGraph({ visualization }: Props) {
             nodeTypes={nodeTypes}
             fitView
             fitViewOptions={{ padding: 0.2 }}
+            minZoom={0.15}
             nodesDraggable={false}
             nodesConnectable={false}
             zoomOnDoubleClick={false}
@@ -841,22 +864,16 @@ export function StoryEvidenceGraph({ visualization }: Props) {
           </ReactFlow>
         </div>
         <aside className="story-graph-detail story-graph-detail-overlay">
-          <span>Selected evidence</span>
-          <strong>{selectedNode?.title}</strong>
-          <p className="story-graph-detail-value">{selectedNode?.value.replaceAll("\n", " · ")}</p>
-          <div className="story-graph-facts">
-            {(selectedNode?.facts ?? []).map((fact) => (
-              <div className="story-graph-fact" key={`${selectedNode?.id}-${fact.label}`}>
-                <span>{fact.label}</span>
-                <strong>{fact.value}</strong>
+          <strong className="story-graph-detail-title">{selectedNode?.title}</strong>
+          <p className="story-graph-detail-value">{compactGraphValue(selectedNode?.value ?? "")}</p>
+          {detailFact ? (
+            <div className="story-graph-facts">
+              <div className="story-graph-fact" key={`${selectedNode?.id}-${detailFact.label}`}>
+                <span>{detailFact.label}</span>
+                <strong>{detailFact.value}</strong>
               </div>
-            ))}
-          </div>
-          <ul className="bullet-list compact">
-            {(selectedNode?.detail ?? []).map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
+            </div>
+          ) : null}
         </aside>
       </div>
     </div>

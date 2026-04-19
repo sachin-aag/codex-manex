@@ -31,6 +31,7 @@ export type TimelineEvent = {
 export type SimilarTicket = {
   id: string;
   title: string;
+  preview: string;
   story: StoryKey;
   team: string;
   fixedBy: string;
@@ -252,6 +253,7 @@ export type QontrolCase = {
     permanentFix: string;
     validation: string;
   };
+  similarClaimIds: string[];
   similarTickets: SimilarTicket[];
   learnings: string[];
   timeline: TimelineEvent[];
