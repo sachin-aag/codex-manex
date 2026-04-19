@@ -90,6 +90,7 @@ export type ReworkRow = {
   defect_id: string | null;
   cost: number | null;
   ts?: string | null;
+  user_id?: string | null;
 };
 
 /**
@@ -259,7 +260,7 @@ export async function fetchRework(
   const query: Record<string, string> = {
     limit: String(effectiveLimit),
     order: "ts.desc",
-    select: "rework_id,product_id,defect_id,cost,ts",
+    select: "rework_id,product_id,defect_id,cost,ts,user_id",
   };
   const queryAppend = range
     ? timestampRangeAppend("ts", range.startIso, range.endIso)

@@ -3,3 +3,8 @@ node_modules
 .env.local
 .env*.local
 .vercel
+
+# Runtime-generated initiative decks (written by /api/portfolio/insights/deck)
+public/reports/initiative-decks/*.html
+public/reports/initiative-decks/*.pptx
+!public/reports/initiative-decks/.gitkeep
