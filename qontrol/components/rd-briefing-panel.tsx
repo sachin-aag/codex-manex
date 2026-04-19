@@ -10,14 +10,14 @@ import {
 } from "react";
 
 import type {
-  BriefingActionRequiredItem,
-  BriefingNextStepItem,
-  BriefingPatternItem,
-  QualityBriefingPayload,
-} from "@/lib/quality-briefing/briefing-types";
+  RdActionRequiredItem,
+  RdBriefingPayload,
+  RdNextStepItem,
+  RdPatternItem,
+} from "@/lib/rd-briefing/briefing-types";
 
 type ApiSuccess = {
-  briefing: QualityBriefingPayload;
+  briefing: RdBriefingPayload;
   generatedAt: string;
   model?: string;
 };
@@ -44,7 +44,7 @@ const PRIORITY_ORDER: Record<string, number> = {
   low: 2,
 };
 
-/** Qontrol case ids are defect_id (DEF-*) and field_claim_id (FC-*); `/?case=` opens the ticket on the home board. */
+/** Board: DEF-/FC-; initiatives PA-; portfolio TR-; R&D case detail /rd/[id] for case IDs. */
 function hrefForId(id: string): string {
   if (id.startsWith("PA-")) return "/portfolio/initiatives";
   if (id.startsWith("DEF-") || id.startsWith("FC-")) {
@@ -53,10 +53,25 @@ function hrefForId(id: string): string {
   return "/portfolio";
 }
 
+function hrefForRdCase(caseId: string): string {
+  if (caseId.startsWith("DEF-") || caseId.startsWith("FC-")) {
+    return `/?case=${encodeURIComponent(caseId)}`;
+  }
+  return `/rd/${encodeURIComponent(caseId)}`;
+}
+
 function IdLink({ id }: { id: string }) {
   return (
     <Link href={hrefForId(id)} className="briefing-id-link">
       {id}
+    </Link>
+  );
+}
+
+function CaseLink({ caseId }: { caseId: string }) {
+  return (
+    <Link href={hrefForRdCase(caseId)} className="briefing-id-link">
+      {caseId}
     </Link>
   );
 }
@@ -100,7 +115,7 @@ function priorityBadgeClass(p: string): string {
   return "briefing-badge briefing-badge-muted";
 }
 
-function sortActions(rows: BriefingActionRequiredItem[]): BriefingActionRequiredItem[] {
+function sortActions(rows: RdActionRequiredItem[]): RdActionRequiredItem[] {
   return [...rows].sort((a, b) => {
     const sa =
       SEVERITY_ORDER[(a.severity ?? "").toLowerCase()] ?? 99;
@@ -111,7 +126,7 @@ function sortActions(rows: BriefingActionRequiredItem[]): BriefingActionRequired
   });
 }
 
-function sortSteps(rows: BriefingNextStepItem[]): BriefingNextStepItem[] {
+function sortSteps(rows: RdNextStepItem[]): RdNextStepItem[] {
   return [...rows].sort((a, b) => {
     const pa =
       PRIORITY_ORDER[(a.priority ?? "").toLowerCase()] ?? 99;
@@ -121,7 +136,7 @@ function sortSteps(rows: BriefingNextStepItem[]): BriefingNextStepItem[] {
   });
 }
 
-export function QualityBriefingPanel() {
+export function RdBriefingPanel() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [data, setData] = useState<ApiSuccess | null>(null);
@@ -131,7 +146,7 @@ export function QualityBriefingPanel() {
     setLoading(true);
     setErr(null);
     try {
-      const res = await fetch("/api/quality-briefing", { method: "POST" });
+      const res = await fetch("/api/rd-briefing", { method: "POST" });
       const json = (await res.json()) as ApiSuccess & ApiErrorJson;
       if (!res.ok) {
         setData(null);
@@ -194,13 +209,13 @@ export function QualityBriefingPanel() {
   }, []);
 
   return (
-    <section className="pf-section briefing-embed" aria-label="AI quality briefing">
+    <section className="briefing-embed" aria-label="AI R&D briefing">
       <div className="briefing-embed-header">
         <div>
-          <h2 className="briefing-embed-title">AI Quality Manager briefing</h2>
+          <h2 className="briefing-embed-title">AI R&D briefing</h2>
           <p className="chart-desc briefing-embed-desc">
-            Live summary of quality themes. Regenerate anytime; tap an ID to open
-            the related portfolio view.
+            Summary of R&D cases, field-claim signals, and design decisions.
+            Regenerate anytime; tap an ID to open the board or R&D workspace.
           </p>
         </div>
         <div className="briefing-actions">
@@ -223,7 +238,7 @@ export function QualityBriefingPanel() {
 
       {loading ? (
         <div className="briefing-loading card-surface panel">
-          <p>Loading quality data and calling the model…</p>
+          <p>Loading R&amp;D data and calling the model…</p>
           <div className="pf-skeleton" style={{ height: 120, marginTop: 16 }} />
         </div>
       ) : null}
@@ -250,7 +265,7 @@ export function QualityBriefingPanel() {
             <div className="briefing-pane card-surface panel">
               <h3 className="briefing-pane-title">Action required</h3>
               <p className="briefing-pane-sub">
-                Critical defects and stale or urgent actions
+                Cases needing attention — severity, age, linked defects
               </p>
               {sortedActions.length === 0 ? (
                 <p className="briefing-empty">No items in this category.</p>
@@ -259,33 +274,41 @@ export function QualityBriefingPanel() {
                   <table className="briefing-table">
                     <thead>
                       <tr>
-                        <th>ID</th>
-                        <th>Product</th>
+                        <th>Case</th>
                         <th>Issue</th>
-                        <th>Age / priority</th>
+                        <th>Severity</th>
+                        <th>Age</th>
+                        <th>Linked defects</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sortedActions.map((row, i) => (
-                        <tr key={`${row.id}-${i}`}>
+                        <tr key={`${row.case_id}-${i}`}>
                           <td>
-                            {/\b(DEF|PA|FC|TR)-/.test(row.id) ? (
-                              <IdLink id={row.id} />
-                            ) : (
-                              <span className="briefing-mono">{row.id}</span>
-                            )}
+                            <CaseLink caseId={row.case_id} />
                           </td>
-                          <td className="briefing-mono">{row.product}</td>
                           <td>{row.issue}</td>
                           <td>
-                            <div className="briefing-severity-age">
-                              <span className={severityBadgeClass(row.severity)}>
-                                {row.severity}
+                            <span className={severityBadgeClass(row.severity)}>
+                              {row.severity}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="briefing-age">{row.age_days}d</span>
+                          </td>
+                          <td className="briefing-mono">
+                            {row.linked_defects?.length ? (
+                              <span className="briefing-check-ids">
+                                {row.linked_defects.map((id, j) => (
+                                  <span key={`${id}-${j}`} className="briefing-id-inline">
+                                    {j > 0 ? " · " : null}
+                                    <IdLink id={id} />
+                                  </span>
+                                ))}
                               </span>
-                              <span className="briefing-age">
-                                {row.age_days}d
-                              </span>
-                            </div>
+                            ) : (
+                              "—"
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -296,53 +319,56 @@ export function QualityBriefingPanel() {
             </div>
 
             <div className="briefing-pane card-surface panel">
-              <h3 className="briefing-pane-title">Patterns and trends</h3>
+              <h3 className="briefing-pane-title">Patterns &amp; insights</h3>
               <p className="briefing-pane-sub">
-                Recurring codes, products, and trend notes
+                Clusters across cases, parts, and defects
               </p>
               {data.briefing.patterns.length === 0 ? (
                 <p className="briefing-empty">No patterns highlighted.</p>
               ) : (
                 <div className="briefing-pane-scroll">
                   <ul className="briefing-pattern-list">
-                  {data.briefing.patterns.map((p: BriefingPatternItem, i) => (
-                    <li key={`${p.defect_type}-${i}`} className="briefing-pattern-item">
-                      <div className="briefing-pattern-head">
-                        <span className="briefing-mono briefing-pattern-code">
-                          {p.defect_type}
-                        </span>
-                        <span className="briefing-badge briefing-badge-count">
-                          {p.count}
-                        </span>
-                      </div>
-                      {p.affected_products?.length ? (
-                        <p className="briefing-pattern-products">
-                          {p.affected_products.join(", ")}
-                        </p>
-                      ) : null}
-                      {p.trend ? (
-                        <p className="briefing-pattern-trend">{p.trend}</p>
-                      ) : null}
-                    </li>
-                  ))}
+                    {data.briefing.patterns.map((p: RdPatternItem, i) => (
+                      <li key={`${p.pattern}-${i}`} className="briefing-pattern-item">
+                        <div className="briefing-pattern-head">
+                          <span className="briefing-mono briefing-pattern-code">
+                            {p.pattern}
+                          </span>
+                        </div>
+                        {p.affected_cases?.length ? (
+                          <p className="briefing-pattern-products">
+                            Cases:{" "}
+                            {p.affected_cases.map((cid, j) => (
+                              <span key={`${cid}-${j}`}>
+                                {j > 0 ? " · " : null}
+                                <CaseLink caseId={cid} />
+                              </span>
+                            ))}
+                          </p>
+                        ) : null}
+                        {p.insight ? (
+                          <p className="briefing-pattern-trend">{p.insight}</p>
+                        ) : null}
+                      </li>
+                    ))}
                   </ul>
                 </div>
               )}
             </div>
 
             <div className="briefing-pane card-surface panel">
-              <h3 className="briefing-pane-title">Progress and wins</h3>
-              <p className="briefing-pane-sub">What is going well</p>
+              <h3 className="briefing-pane-title">Progress &amp; wins</h3>
+              <p className="briefing-pane-sub">Resolved work and positive signals</p>
               {data.briefing.progress.length === 0 ? (
                 <p className="briefing-empty">No positive signals listed.</p>
               ) : (
                 <div className="briefing-pane-scroll">
                   <ul className="briefing-progress-list">
-                  {data.briefing.progress.map((line, i) => (
-                    <li key={i} className="briefing-progress-item">
-                      {linkifyIds(line)}
-                    </li>
-                  ))}
+                    {data.briefing.progress.map((line, i) => (
+                      <li key={i} className="briefing-progress-item">
+                        {linkifyIds(line)}
+                      </li>
+                    ))}
                   </ul>
                 </div>
               )}

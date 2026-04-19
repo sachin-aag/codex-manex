@@ -1,4 +1,11 @@
 import { RdPortfolio } from "@/components/rd/rd-portfolio";
+import {
+  lastNDaysRangeUtc,
+  parseRangeFromSearchParams,
+  utcBoundsFromDays,
+  type UtcDay,
+  type UtcRange,
+} from "@/lib/date-range";
 import { listRdCases } from "@/lib/db/cases";
 import {
   fetchClaimsForRd,
@@ -8,19 +15,59 @@ import {
 
 export const dynamic = "force-dynamic";
 
+function toUtcRange(from: UtcDay, to: UtcDay): UtcRange {
+  const { startIso, endIso } = utcBoundsFromDays(from, to);
+  return { from, to, startIso, endIso };
+}
+
 type PageProps = {
-  searchParams: Promise<{ filter?: string; part?: string }>;
+  searchParams: Promise<{ filter?: string; part?: string; from?: string; to?: string }>;
 };
 
 export default async function RdHomePage({ searchParams }: PageProps) {
-  const { filter, part } = await searchParams;
+  const sp = await searchParams;
+
+  const params = new URLSearchParams();
+  if (sp.from) params.set("from", sp.from);
+  if (sp.to) params.set("to", sp.to);
+
+  const parsed = parseRangeFromSearchParams(params);
+  if (!parsed.ok) {
+    return (
+      <main className="page-shell" data-dept="rd">
+        <section className="hero-strip">
+          <div>
+            <p className="eyebrow">R&D · Design / Reliability</p>
+            <h1>R&D Workspace</h1>
+            <p className="hero-copy">Invalid time range in the URL.</p>
+          </div>
+        </section>
+        <div className="card-surface panel" style={{ marginTop: 20 }}>
+          <p style={{ color: "var(--danger)" }}>{parsed.error}</p>
+          <p style={{ color: "var(--text-secondary)", marginTop: 8 }}>
+            Use <code className="kpi-code">from</code> and <code className="kpi-code">to</code> as{" "}
+            YYYY-MM-DD, or remove both for the default (last 7 days).
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  const seven = lastNDaysRangeUtc(7);
+  const effectiveRange: UtcRange =
+    parsed.range === null ? toUtcRange(seven.from, seven.to) : parsed.range;
 
   try {
-    const [cases, claims, defects, recentDecisions] = await Promise.all([
-      listRdCases(),
-      fetchClaimsForRd(200),
-      fetchDefectsForRd(300),
-      listRecentRdDecisions(10),
+    const allCases = await listRdCases();
+    const cases = allCases.filter(
+      (c) =>
+        c.lastUpdateAt >= effectiveRange.startIso && c.lastUpdateAt <= effectiveRange.endIso,
+    );
+
+    const [claims, defects, recentDecisions] = await Promise.all([
+      fetchClaimsForRd(200, effectiveRange),
+      fetchDefectsForRd(300, effectiveRange),
+      listRecentRdDecisions(10, effectiveRange),
     ]);
 
     return (
@@ -29,8 +76,9 @@ export default async function RdHomePage({ searchParams }: PageProps) {
         claims={claims}
         defects={defects}
         recentDecisions={recentDecisions}
-        filter={filter ?? null}
-        part={part ?? null}
+        filter={sp.filter ?? null}
+        part={sp.part ?? null}
+        timeRange={{ from: effectiveRange.from, to: effectiveRange.to }}
       />
     );
   } catch (err) {

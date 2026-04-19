@@ -1,6 +1,7 @@
 "use client";
 
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import {
   clarityLabel,
@@ -41,6 +42,8 @@ function getMockToolName(caseItem: QontrolCase) {
 }
 
 export function QontrolApp() {
+  const searchParams = useSearchParams();
+  const deepLinkApplied = useRef(false);
   const [cases, setCases] = useState<CaseMap>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -139,6 +142,16 @@ export function QontrolApp() {
       window.clearInterval(intervalId);
     };
   }, []);
+
+  useEffect(() => {
+    if (deepLinkApplied.current) return;
+    const cid = searchParams.get("case")?.trim();
+    if (!cid || Object.keys(cases).length === 0) return;
+    if (cases[cid]) {
+      setSelectedId(cid);
+      deepLinkApplied.current = true;
+    }
+  }, [cases, searchParams]);
 
   function updateCase(id: string, updater: (draft: QontrolCase) => QontrolCase) {
     setCases((current) => ({

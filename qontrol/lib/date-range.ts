@@ -94,6 +94,45 @@ export function yearToDateRangeUtc(): { from: UtcDay; to: UtcDay } {
   return { from: utcYearStartYmd(), to: utcTodayYmd() };
 }
 
+/** Last `days` UTC calendar days ending today (inclusive). */
+export function lastNDaysRangeUtc(days: number): { from: UtcDay; to: UtcDay } {
+  const to = new Date();
+  const from = new Date(to.getTime());
+  from.setUTCDate(from.getUTCDate() - (days - 1));
+  return {
+    from: from.toISOString().slice(0, 10),
+    to: to.toISOString().slice(0, 10),
+  };
+}
+
+/** Previous UTC calendar month (first through last day). */
+export function previousCalendarMonthRangeUtc(): { from: UtcDay; to: UtcDay } {
+  const now = new Date();
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+  const firstThisMonth = new Date(Date.UTC(y, m, 1));
+  const lastPrev = new Date(firstThisMonth.getTime() - 86_400_000);
+  const firstPrev = new Date(
+    Date.UTC(lastPrev.getUTCFullYear(), lastPrev.getUTCMonth(), 1),
+  );
+  return {
+    from: firstPrev.toISOString().slice(0, 10),
+    to: lastPrev.toISOString().slice(0, 10),
+  };
+}
+
+/** From the first day of the UTC month five months before the current month through today (six month headers). */
+export function lastSixMonthsToDateRangeUtc(): { from: UtcDay; to: UtcDay } {
+  const now = new Date();
+  const d = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1),
+  );
+  return {
+    from: d.toISOString().slice(0, 10),
+    to: utcTodayYmd(),
+  };
+}
+
 function utcYmdToMs(ymd: UtcDay): number {
   return Date.UTC(
     Number(ymd.slice(0, 4)),

@@ -1,3 +1,5 @@
+import type { UtcRange } from "@/lib/date-range";
+import { timestampRangeAppend } from "@/lib/date-range";
 import { postgrestRequest } from "@/lib/db/postgrest";
 
 // ---- Raw row types ----
@@ -62,25 +64,41 @@ export type ProductActionRow = {
 
 // ---- Bulk fetchers for portfolio signals (include all fields R&D needs) ----
 
-export async function fetchDefectsForRd(limit = 300): Promise<DefectHistoryRow[]> {
+export async function fetchDefectsForRd(
+  limit = 300,
+  range?: UtcRange | null,
+): Promise<DefectHistoryRow[]> {
+  const effectiveLimit = range ? Math.max(limit, 2000) : limit;
+  const queryAppend = range
+    ? timestampRangeAppend("defect_ts", range.startIso, range.endIso)
+    : undefined;
   return postgrestRequest<DefectHistoryRow[]>("v_defect_detail", {
     query: {
       select:
         "defect_id,product_id,defect_ts,defect_code,severity,reported_part_number,article_id,article_name,notes",
       order: "defect_ts.desc",
-      limit: String(limit),
+      limit: String(effectiveLimit),
     },
+    queryAppend,
   });
 }
 
-export async function fetchClaimsForRd(limit = 200): Promise<ClaimLagRow[]> {
+export async function fetchClaimsForRd(
+  limit = 200,
+  range?: UtcRange | null,
+): Promise<ClaimLagRow[]> {
+  const effectiveLimit = range ? Math.max(limit, 2000) : limit;
+  const queryAppend = range
+    ? timestampRangeAppend("claim_ts", range.startIso, range.endIso)
+    : undefined;
   return postgrestRequest<ClaimLagRow[]>("v_field_claim_detail", {
     query: {
       select:
         "field_claim_id,product_id,claim_ts,days_from_build,market,reported_part_number,complaint_text,article_id,article_name",
       order: "claim_ts.desc",
-      limit: String(limit),
+      limit: String(effectiveLimit),
     },
+    queryAppend,
   });
 }
 
@@ -271,13 +289,20 @@ export function lagDistribution(claims: ClaimLagRow[]): { bucket: string; count:
 
 // ---- R&D decisions feed (for portfolio "recent decisions" panel) ----
 
-export async function listRecentRdDecisions(limit = 10): Promise<ProductActionRow[]> {
+export async function listRecentRdDecisions(
+  limit = 10,
+  range?: UtcRange | null,
+): Promise<ProductActionRow[]> {
+  const queryAppend = range
+    ? timestampRangeAppend("ts", range.startIso, range.endIso)
+    : undefined;
   return postgrestRequest<ProductActionRow[]>("product_action", {
     query: {
       action_type: "eq.design_decision",
       order: "ts.desc",
       limit: String(limit),
     },
+    queryAppend,
   });
 }
 
