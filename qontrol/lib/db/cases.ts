@@ -1,4 +1,5 @@
 import {
+  type CaseTraceability,
   type CaseState,
   type Clarity,
   type EmailDraft,
@@ -1591,6 +1592,230 @@ function buildHandlingVisualization(params: {
   };
 }
 
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return "Unknown";
+  return new Date(value).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function parseNumericValue(value: string | number | null | undefined) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (!value) return null;
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatMeasurement(value: number | string | null | undefined, unit?: string | null) {
+  if (value == null || value === "") return "No measured value";
+  return `${value}${unit ? ` ${unit}` : ""}`;
+}
+
+function formatSpecRange(
+  lower: number | null | undefined,
+  upper: number | null | undefined,
+  unit?: string | null,
+) {
+  if (lower == null && upper == null) return "Spec unavailable";
+  if (lower != null && upper != null) {
+    return `${lower}-${upper}${unit ? ` ${unit}` : ""}`;
+  }
+  if (lower != null) return `>= ${lower}${unit ? ` ${unit}` : ""}`;
+  return `<= ${upper}${unit ? ` ${unit}` : ""}`;
+}
+
+function buildTraceabilityMermaid(params: {
+  supplierName: string;
+  batchId: string;
+  partNumber: string;
+  findNumber: string;
+  articleId: string;
+  productId: string;
+  orderId: string;
+  buildTs: string;
+  occurrence: string;
+  discovery: string;
+  issue: string;
+  measurement: string;
+  deviation: string;
+  downstream: string;
+  operatorSignal?: string;
+}) {
+  const lines = [
+    "flowchart LR",
+    `    supplier["Supplier<br/>${escapeMermaidLabel(params.supplierName)}"]`,
+    `    batch["Batch<br/>${escapeMermaidLabel(params.batchId)}"]`,
+    `    part["Part<br/>${escapeMermaidLabel(params.partNumber)}"]`,
+    `    bom["BOM position<br/>${escapeMermaidLabel(params.findNumber)} on ${escapeMermaidLabel(params.articleId)}"]`,
+    `    product["Product<br/>${escapeMermaidLabel(params.productId)}"]`,
+    `    orderNode["Order / build<br/>${escapeMermaidLabel(params.orderId)}<br/>${escapeMermaidLabel(params.buildTs)}"]`,
+    `    occurrence["Likely occurred<br/>${escapeMermaidLabel(params.occurrence)}"]`,
+    `    discovery{{"Discovered<br/>${escapeMermaidLabel(params.discovery)}"}}`,
+    `    issue(["Issue<br/>${escapeMermaidLabel(params.issue)}"])`,
+    `    measurement["Measurement<br/>${escapeMermaidLabel(params.measurement)}"]`,
+    `    deviation["Deviation / spec<br/>${escapeMermaidLabel(params.deviation)}"]`,
+    `    downstream["Downstream impact<br/>${escapeMermaidLabel(params.downstream)}"]`,
+    "",
+    "    supplier --> batch",
+    "    batch --> part",
+    "    part --> bom",
+    "    bom --> product",
+    "    product --> orderNode",
+    "    orderNode --> occurrence",
+    "    occurrence --> discovery",
+    "    discovery --> issue",
+    "    discovery --> measurement",
+    "    measurement --> deviation",
+    "    issue --> downstream",
+  ];
+
+  if (params.operatorSignal) {
+    lines.push(
+      `    operator["Operator / rework<br/>${escapeMermaidLabel(params.operatorSignal)}"]`,
+      "    issue --> operator",
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function buildTraceabilityWidget(params: {
+  item: QontrolCase;
+  visualization: StoryVisualization;
+  product: ProductRow | undefined;
+  relatedDefects: DefectRow[];
+  relatedClaims: ClaimRow[];
+  tests: TestResultRow[];
+  bomParts: BomPartInstallRow[];
+  bomNodes: BomNodeRow[];
+  storyReworks: ReworkSummaryRow[];
+}): CaseTraceability {
+  const focusDefect =
+    params.relatedDefects
+      .filter((row) => row.product_id === params.item.productId)
+      .sort((a, b) => new Date(b.defect_ts ?? 0).getTime() - new Date(a.defect_ts ?? 0).getTime())[0] ??
+    params.relatedDefects[0];
+  const focusClaim =
+    params.relatedClaims
+      .filter((row) => row.product_id === params.item.productId)
+      .sort((a, b) => new Date(b.claim_ts ?? 0).getTime() - new Date(a.claim_ts ?? 0).getTime())[0] ??
+    params.relatedClaims[0];
+  const focusBomInstall =
+    params.bomParts.find(
+      (row) => row.product_id === params.item.productId && row.part_number === params.item.partNumber,
+    ) ?? params.bomParts.find((row) => row.part_number === params.item.partNumber);
+  const focusBomNode = params.bomNodes.find((row) => row.part_number === params.item.partNumber);
+  const focusTest =
+    params.tests.find(
+      (row) =>
+        row.product_id === params.item.productId &&
+        (row.overall_result === "FAIL" || row.overall_result === "MARGINAL"),
+    ) ?? params.tests.find((row) => row.product_id === params.item.productId);
+  const defectNumeric = parseNumericValue(focusDefect?.detected_test_value);
+  const measuredValue =
+    defectNumeric != null
+      ? formatMeasurement(defectNumeric, focusDefect?.detected_test_unit)
+      : formatMeasurement(focusTest?.test_value, focusTest?.unit);
+  const measurementName =
+    focusDefect?.detected_test_name ??
+    focusTest?.test_key ??
+    (params.item.sourceType === "claim" ? "Field complaint" : "Measurement under review");
+  const measurementSummary =
+    measurementName === "Field complaint"
+      ? focusClaim?.complaint_text?.slice(0, 80) ?? "Customer complaint"
+      : `${measurementName}: ${measuredValue}`;
+  const specSummary =
+    focusDefect?.detected_test_name != null
+      ? `${formatSpecRange(
+          focusDefect.detected_test_lower,
+          focusDefect.detected_test_upper,
+          focusDefect.detected_test_unit,
+        )} · ${focusDefect.detected_test_overall ?? "overall unknown"}`
+      : `${focusTest?.overall_result ?? "overall unknown"}${focusTest?.unit ? ` · ${focusTest.unit}` : ""}`;
+  const supplierName =
+    focusBomInstall?.supplier_name ??
+    (params.visualization.kind === "supplier" ? params.visualization.supplierName : "Supplier not isolated");
+  const batchId =
+    focusBomInstall?.batch_id ??
+    (params.visualization.kind === "supplier" ? params.visualization.batchId : "Batch under review");
+  const findNumber =
+    focusBomInstall?.find_number ??
+    focusBomNode?.find_number ??
+    (params.visualization.kind === "design" ? params.visualization.findNumber : "Find number unknown");
+  const buildTs =
+    params.product?.build_ts ??
+    focusDefect?.product_build_ts ??
+    focusClaim?.product_build_ts ??
+    "Build timestamp unavailable";
+  const orderId = params.product?.order_id ?? focusDefect?.order_id ?? "Order unknown";
+  const occurrence =
+    focusDefect?.occurrence_section_name ??
+    (params.visualization.kind === "process" ? params.visualization.section : "Occurrence not isolated");
+  const discovery =
+    focusDefect?.detected_section_name ??
+    focusClaim?.detected_section_name ??
+    (params.item.sourceType === "claim" ? "Customer field" : "Detection pending");
+  const issue = focusDefect?.defect_code ?? params.item.defectType ?? "Issue under review";
+  const downstream =
+    params.visualization.kind === "handling"
+      ? `${params.visualization.orderMatrix.orders.length} recurring order(s)`
+      : params.relatedClaims.length > 0
+        ? `${params.relatedClaims.length} linked field claim(s)`
+        : `${params.relatedDefects.length} linked defect event(s)`;
+  const operatorSignal =
+    params.visualization.kind === "handling"
+      ? `${params.visualization.operator} across ${params.visualization.orderMatrix.orders.join(", ")}`
+      : undefined;
+
+  return {
+    title: "Traceability tree",
+    summary:
+      "Schema-driven lineage from supplier and BOM placement through build, discovery, measurement, and downstream impact.",
+    mermaid: buildTraceabilityMermaid({
+      supplierName,
+      batchId,
+      partNumber: params.item.partNumber,
+      findNumber,
+      articleId: params.item.articleId,
+      productId: params.item.productId,
+      orderId,
+      buildTs: formatDateTime(buildTs),
+      occurrence,
+      discovery,
+      issue,
+      measurement: measurementSummary,
+      deviation: specSummary,
+      downstream,
+      operatorSignal,
+    }),
+    facts: [
+      { label: "Supplier", value: supplierName },
+      { label: "Batch", value: batchId, highlight: true },
+      { label: "Part / BOM", value: `${params.item.partNumber} / ${findNumber}` },
+      { label: "Article / product", value: `${params.item.articleId} / ${params.item.productId}` },
+      { label: "Order / build", value: `${orderId} / ${formatDateTime(buildTs)}` },
+      { label: "Occurred at", value: occurrence },
+      { label: "Discovered at", value: discovery, highlight: true },
+      { label: "Error", value: issue, highlight: true },
+      { label: "Measurement", value: measurementSummary },
+      { label: "Deviation / spec", value: specSummary },
+      { label: "Downstream", value: downstream },
+      ...(operatorSignal ? [{ label: "Operator / rework", value: operatorSignal }] : []),
+    ],
+    notes: [
+      "This tree is a traceability / manufacturing-lineage view, not the causal RCA graph.",
+      "Use it to see where the part moved, where the issue surfaced, and which schema fields support the link.",
+      ...(focusBomInstall?.batch_received_date
+        ? [`Batch received ${formatShortDate(focusBomInstall.batch_received_date)}.`]
+        : []),
+    ],
+  };
+}
+
 function decorateCase(params: {
   item: QontrolCase;
   allCases: QontrolCase[];
@@ -1671,12 +1896,14 @@ function decorateCase(params: {
   });
 
   let visualization: StoryVisualization;
+  const bomParts = params.bomPartsByPart.get(params.item.partNumber) ?? [];
+  const bomNodes = params.bomNodesByBom.get(product?.bom_id ?? "") ?? [];
   if (params.item.story === "supplier") {
     visualization = buildSupplierVisualization({
       item: params.item,
       relatedDefects,
       relatedClaims,
-      bomParts: params.bomPartsByPart.get(params.item.partNumber) ?? [],
+      bomParts,
       tests: params.tests,
     });
   } else if (params.item.story === "design") {
@@ -1684,7 +1911,7 @@ function decorateCase(params: {
       item: params.item,
       relatedClaims,
       relatedDefects,
-      bomNodes: params.bomNodesByBom.get(product?.bom_id ?? "") ?? [],
+      bomNodes,
     });
   } else if (params.item.story === "handling") {
     visualization = buildHandlingVisualization({
@@ -1702,6 +1929,17 @@ function decorateCase(params: {
       tests: params.tests,
     });
   }
+  const traceability = buildTraceabilityWidget({
+    item: params.item,
+    visualization,
+    product,
+    relatedDefects,
+    relatedClaims,
+    tests: params.tests,
+    bomParts,
+    bomNodes,
+    storyReworks,
+  });
   const githubDiscussionLearnings = extractGitHubDiscussionTakeaways(
     params.item.external?.discussionSummary,
   );
@@ -1710,6 +1948,7 @@ function decorateCase(params: {
     ...params.item,
     triageContext,
     visualization,
+    traceability,
     proposedFix: {
       ...params.item.proposedFix,
       ownerConfirmation: inferOwnerConfirmation({
@@ -2315,14 +2554,19 @@ function buildMermaidDiagram(
 
 function buildVisualizationDiagram(visualization: StoryVisualization) {
   if (visualization.kind === "supplier") {
+    const hasTestOutcomes = visualization.testOutcomes.some((point) => point.count > 0);
     return buildMermaidDiagram(
       [
         { id: "batch", label: `Supplier batch\n${visualization.batchId}\n${visualization.supplierName}` },
         { id: "exposure", label: `Exposure\n${visualization.exposedProducts} products in cohort` },
-        {
-          id: "tests",
-          label: `ESR signal\n${outcomeCount(visualization.testOutcomes, "MARGINAL")} marginal / ${outcomeCount(visualization.testOutcomes, "FAIL")} fail`,
-        },
+        ...(hasTestOutcomes
+          ? [
+              {
+                id: "tests",
+                label: `ESR signal\n${outcomeCount(visualization.testOutcomes, "MARGINAL")} marginal / ${outcomeCount(visualization.testOutcomes, "FAIL")} fail`,
+              },
+            ]
+          : []),
         { id: "pattern", label: `Pattern\nIncoming material issue\n${visualization.batchId}` },
         {
           id: "factory",
@@ -2336,7 +2580,7 @@ function buildVisualizationDiagram(visualization: StoryVisualization) {
       [
         { from: "batch", to: "pattern", label: "traceable" },
         { from: "exposure", to: "pattern", label: "installed into" },
-        { from: "tests", to: "pattern", label: "supports" },
+        ...(hasTestOutcomes ? [{ from: "tests", to: "pattern", label: "supports" }] : []),
         { from: "pattern", to: "factory", label: "drives" },
         { from: "factory", to: "field", label: "escapes to field" },
       ],
@@ -2434,10 +2678,15 @@ function buildVisualizationDiagram(visualization: StoryVisualization) {
 function buildVisualizationFacts(visualization: StoryVisualization) {
   if (visualization.kind === "supplier") {
     const dominantLag = [...visualization.lagDistribution].sort((a, b) => b.count - a.count)[0];
+    const hasTestOutcomes = visualization.testOutcomes.some((point) => point.count > 0);
     return [
       `${visualization.affectedProducts} of ${visualization.exposedProducts} exposed products were affected (${Math.round(visualization.defectRate * 100)}% hit rate).`,
       `Dominant field-claim lag bucket: ${dominantLag?.label ?? "not enough evidence yet"}.`,
-      `ESR outcomes on the cohort: ${outcomeCount(visualization.testOutcomes, "MARGINAL")} marginal and ${outcomeCount(visualization.testOutcomes, "FAIL")} fail.`,
+      ...(hasTestOutcomes
+        ? [
+            `ESR outcomes on the cohort: ${outcomeCount(visualization.testOutcomes, "MARGINAL")} marginal and ${outcomeCount(visualization.testOutcomes, "FAIL")} fail.`,
+          ]
+        : []),
     ];
   }
 

@@ -1,12 +1,14 @@
 "use client";
 
-import type { QontrolCase, StoryMatrixCell } from "@/lib/qontrol-data";
+import type { CaseTraceability, QontrolCase, StoryMatrixCell } from "@/lib/qontrol-data";
 
 import { StoryEvidenceGraph } from "@/components/story-evidence-graph";
+import { StoryTraceabilityView } from "@/components/story-traceability-view";
 
 type Props = {
   visualization: QontrolCase["visualization"];
   evidenceTrail: string[];
+  traceability?: CaseTraceability;
 };
 
 type SignalTrendRow = {
@@ -31,6 +33,22 @@ function outcomeCount(
   label: string,
 ) {
   return points.find((point) => point.label === label)?.count ?? 0;
+}
+
+function hasDistributionSignal(
+  points: Array<{ count: number }>,
+) {
+  return points.some((point) => point.count > 0);
+}
+
+function hasTimelineSignal(rows: SignalTrendRow[]) {
+  return rows.some(
+    (row) => row.defectCount > 0 || row.failCount > 0 || row.marginalCount > 0,
+  );
+}
+
+function hasMatrixSignal(cells: StoryMatrixCell[]) {
+  return cells.some((cell) => cell.count > 0);
 }
 
 function DistributionBars({
@@ -185,13 +203,16 @@ function StoryFacts({
   );
 }
 
-export function StoryEvidenceView({ visualization, evidenceTrail }: Props) {
+export function StoryEvidenceView({ visualization, evidenceTrail, traceability }: Props) {
   if (visualization.kind === "supplier") {
     const graphKey = `${visualization.kind}:${visualization.batchId}:${visualization.supplierName}`;
+    const hasTestOutcomes = hasDistributionSignal(visualization.testOutcomes);
+    const hasLagDistribution = hasDistributionSignal(visualization.lagDistribution);
     return (
       <div className="story-evidence-layout">
         <p className="story-visual-summary">{visualization.summary}</p>
         <StoryEvidenceGraph key={graphKey} visualization={visualization} />
+        <StoryTraceabilityView traceability={traceability} />
         <div className="story-kpi-grid">
           <div className="story-kpi-card">
             <span>Supplier</span>
@@ -206,22 +227,32 @@ export function StoryEvidenceView({ visualization, evidenceTrail }: Props) {
             </p>
           </div>
         </div>
-        <div className="story-support-grid two-up">
-          <section className="story-support-panel">
-            <h4>Field-claim lag</h4>
-            <DistributionBars
-              points={visualization.lagDistribution}
-              emptyLabel="No claim lag evidence yet."
-            />
-          </section>
-          <section className="story-support-panel">
-            <h4>ESR test outcomes</h4>
-            <DistributionBars
-              points={visualization.testOutcomes}
-              emptyLabel="No ESR test outcomes for this batch."
-            />
-          </section>
-        </div>
+        {hasLagDistribution || hasTestOutcomes ? (
+          <div
+            className={`story-support-grid ${
+              hasLagDistribution && hasTestOutcomes ? "two-up" : ""
+            }`}
+          >
+            {hasLagDistribution ? (
+              <section className="story-support-panel">
+                <h4>Field-claim lag</h4>
+                <DistributionBars
+                  points={visualization.lagDistribution}
+                  emptyLabel="No claim lag evidence yet."
+                />
+              </section>
+            ) : null}
+            {hasTestOutcomes ? (
+              <section className="story-support-panel">
+                <h4>ESR test outcomes</h4>
+                <DistributionBars
+                  points={visualization.testOutcomes}
+                  emptyLabel="No ESR test outcomes for this batch."
+                />
+              </section>
+            ) : null}
+          </div>
+        ) : null}
         <StoryFacts evidenceTrail={evidenceTrail} annotations={visualization.annotations} />
       </div>
     );
@@ -233,12 +264,14 @@ export function StoryEvidenceView({ visualization, evidenceTrail }: Props) {
         b.defectCount + b.failCount + b.marginalCount - (a.defectCount + a.failCount + a.marginalCount),
     )[0];
     const graphKey = `${visualization.kind}:${visualization.section}:${visualization.filteredFalsePositives}:${visualization.trend.map((point) => `${point.label}-${point.defectCount}-${point.failCount}-${point.marginalCount}`).join("|")}`;
+    const hasSignalWindow = hasTimelineSignal(visualization.trend);
     return (
       <div className="story-evidence-layout">
         <p className="story-visual-summary">
           {visualization.summary} Focus section: <strong>{visualization.section}</strong>.
         </p>
         <StoryEvidenceGraph key={graphKey} visualization={visualization} />
+        <StoryTraceabilityView traceability={traceability} />
         <div className="story-kpi-grid">
           <div className="story-kpi-card">
             <span>Focus section</span>
@@ -259,12 +292,14 @@ export function StoryEvidenceView({ visualization, evidenceTrail }: Props) {
             <p>Inspection noise removed before pattern scoring</p>
           </div>
         </div>
-        <div className="story-support-grid">
-          <section className="story-support-panel">
-            <h4>Signal window</h4>
-            <SignalTimeline data={visualization.trend} />
-          </section>
-        </div>
+        {hasSignalWindow ? (
+          <div className="story-support-grid">
+            <section className="story-support-panel">
+              <h4>Signal window</h4>
+              <SignalTimeline data={visualization.trend} />
+            </section>
+          </div>
+        ) : null}
         <StoryFacts evidenceTrail={evidenceTrail} annotations={visualization.annotations} />
       </div>
     );
@@ -274,11 +309,15 @@ export function StoryEvidenceView({ visualization, evidenceTrail }: Props) {
     const dominantLag = [...visualization.lagDistribution].sort((a, b) => b.count - a.count)[0];
     const totalClaims = visualization.claimScatter.length;
     const graphKey = `${visualization.kind}:${visualization.findNumber}:${visualization.fieldOnlyClaims}:${visualization.overlappingClaims}:${visualization.claimScatter.length}`;
+    const hasLagDistribution = hasDistributionSignal(visualization.lagDistribution);
+    const hasEvidenceBalance =
+      visualization.fieldOnlyClaims > 0 || visualization.overlappingClaims > 0;
 
     return (
       <div className="story-evidence-layout">
         <p className="story-visual-summary">{visualization.summary}</p>
         <StoryEvidenceGraph key={graphKey} visualization={visualization} />
+        <StoryTraceabilityView traceability={traceability} />
         <div className="story-kpi-grid">
           <div className="story-kpi-card">
             <span>BOM position</span>
@@ -293,74 +332,107 @@ export function StoryEvidenceView({ visualization, evidenceTrail }: Props) {
             </p>
           </div>
         </div>
-        <div className="story-support-grid two-up">
-          <section className="story-support-panel">
-            <h4>Lag buckets</h4>
-            <DistributionBars
-              points={visualization.lagDistribution}
-              emptyLabel="No lag evidence yet."
-            />
-          </section>
-          <section className="story-support-panel">
-            <h4>Evidence balance</h4>
-            <DistributionBars
-              points={[
-                {
-                  label: "Field-only",
-                  count: visualization.fieldOnlyClaims,
-                  detail: "Claims with no linked factory defect",
-                  highlight: true,
-                },
-                {
-                  label: "Overlap",
-                  count: visualization.overlappingClaims,
-                  detail: "Claims that still overlap factory evidence",
-                },
-              ]}
-              emptyLabel="No design evidence balance available."
-            />
-            <p className="story-support-note">
-              Dominant lag bucket: <strong>{dominantLag?.label ?? "Not enough evidence yet"}</strong>.
-            </p>
-          </section>
-        </div>
+        {hasLagDistribution || hasEvidenceBalance ? (
+          <div
+            className={`story-support-grid ${
+              hasLagDistribution && hasEvidenceBalance ? "two-up" : ""
+            }`}
+          >
+            {hasLagDistribution ? (
+              <section className="story-support-panel">
+                <h4>Lag buckets</h4>
+                <DistributionBars
+                  points={visualization.lagDistribution}
+                  emptyLabel="No lag evidence yet."
+                />
+              </section>
+            ) : null}
+            {hasEvidenceBalance ? (
+              <section className="story-support-panel">
+                <h4>Evidence balance</h4>
+                <DistributionBars
+                  points={[
+                    {
+                      label: "Field-only",
+                      count: visualization.fieldOnlyClaims,
+                      detail: "Claims with no linked factory defect",
+                      highlight: true,
+                    },
+                    {
+                      label: "Overlap",
+                      count: visualization.overlappingClaims,
+                      detail: "Claims that still overlap factory evidence",
+                    },
+                  ]}
+                  emptyLabel="No design evidence balance available."
+                />
+                <p className="story-support-note">
+                  Dominant lag bucket: <strong>{dominantLag?.label ?? "Not enough evidence yet"}</strong>.
+                </p>
+              </section>
+            ) : null}
+          </div>
+        ) : null}
         <StoryFacts evidenceTrail={evidenceTrail} annotations={visualization.annotations} />
       </div>
     );
   }
 
   const graphKey = `${visualization.kind}:${visualization.operator}:${visualization.orderMatrix.orders.join("|")}:${visualization.actionSnapshot.openActions}:${visualization.actionSnapshot.closedActions}`;
+  const hasOrderMatrix = hasMatrixSignal(visualization.orderMatrix.cells);
+  const hasSeverityMix = hasDistributionSignal(visualization.severityMix);
+  const hasActionSnapshot =
+    visualization.actionSnapshot.openActions > 0 ||
+    visualization.actionSnapshot.closedActions > 0 ||
+    visualization.actionSnapshot.latestAction !== "No follow-up action logged yet.";
   return (
     <div className="story-evidence-layout">
       <p className="story-visual-summary">
         {visualization.summary} Dominant operator: <strong>{visualization.operator}</strong>.
       </p>
       <StoryEvidenceGraph key={graphKey} visualization={visualization} />
-      <div className="story-support-grid handling-layout">
-        <section className="story-support-panel">
-          <h4>Order by operator matrix</h4>
-          <HandlingMatrix
-            orders={visualization.orderMatrix.orders}
-            operators={visualization.orderMatrix.operators}
-            cells={visualization.orderMatrix.cells}
-            maxCount={visualization.orderMatrix.maxCount}
-          />
-        </section>
-        <section className="story-support-panel">
-          <h4>Severity mix</h4>
-          <DistributionBars
-            points={visualization.severityMix}
-            emptyLabel="No severity mix available."
-          />
-          <div className="story-action-card">
-            <span>Follow-up actions</span>
-            <strong>
-              {visualization.actionSnapshot.closedActions} closed / {visualization.actionSnapshot.openActions} open
-            </strong>
-            <p>{visualization.actionSnapshot.latestAction}</p>
-          </div>
-        </section>
-      </div>
+      <StoryTraceabilityView traceability={traceability} />
+      {hasOrderMatrix || hasSeverityMix || hasActionSnapshot ? (
+        <div
+          className={`story-support-grid ${
+            hasOrderMatrix && (hasSeverityMix || hasActionSnapshot) ? "handling-layout" : ""
+          }`}
+        >
+          {hasOrderMatrix ? (
+            <section className="story-support-panel">
+              <h4>Order by operator matrix</h4>
+              <HandlingMatrix
+                orders={visualization.orderMatrix.orders}
+                operators={visualization.orderMatrix.operators}
+                cells={visualization.orderMatrix.cells}
+                maxCount={visualization.orderMatrix.maxCount}
+              />
+            </section>
+          ) : null}
+          {hasSeverityMix || hasActionSnapshot ? (
+            <section className="story-support-panel">
+              {hasSeverityMix ? (
+                <>
+                  <h4>Severity mix</h4>
+                  <DistributionBars
+                    points={visualization.severityMix}
+                    emptyLabel="No severity mix available."
+                  />
+                </>
+              ) : null}
+              {hasActionSnapshot ? (
+                <div className="story-action-card">
+                  <span>Follow-up actions</span>
+                  <strong>
+                    {visualization.actionSnapshot.closedActions} closed / {visualization.actionSnapshot.openActions} open
+                  </strong>
+                  <p>{visualization.actionSnapshot.latestAction}</p>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+        </div>
+      ) : null}
       <StoryFacts evidenceTrail={evidenceTrail} annotations={visualization.annotations} />
     </div>
   );

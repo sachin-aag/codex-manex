@@ -1000,6 +1000,7 @@ export function QontrolApp() {
                         <StoryEvidenceView
                           visualization={selectedCase.visualization}
                           evidenceTrail={selectedCase.evidenceTrail}
+                          traceability={selectedCase.traceability}
                         />
                       </Panel>
 

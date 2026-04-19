@@ -22,6 +22,7 @@ type StoryGraphNodeData = {
   title: string;
   value: string;
   detail: string[];
+  facts: Array<{ label: string; value: string }>;
   tone: NodeTone;
   gateLabel?: "AND" | "OR";
 };
@@ -34,6 +35,7 @@ type StoryGraphNode = {
   value: string;
   tone?: NodeTone;
   detail?: string[];
+  facts?: Array<{ label: string; value: string }>;
   gateLabel?: "AND" | "OR";
   width?: number;
   sourcePosition?: Position;
@@ -111,6 +113,11 @@ function buildSupplierGraph(visualization: Extract<StoryVisualization, { kind: "
     visualization.steps.find((step) => step.label === "In-factory defects")?.value ?? "0";
   const claimCount =
     visualization.steps.find((step) => step.label === "Field claims")?.value ?? "0";
+  const marginalCount = outcomeCount(visualization.testOutcomes, "MARGINAL");
+  const failCount = outcomeCount(visualization.testOutcomes, "FAIL");
+  const passCount = outcomeCount(visualization.testOutcomes, "PASS");
+  const hitRate = `${Math.round(visualization.defectRate * 100)}%`;
+  const hasTestSignal = visualization.testOutcomes.some((point) => point.count > 0);
 
   return {
     initialSelectedId: "pattern",
@@ -128,6 +135,11 @@ function buildSupplierGraph(visualization: Extract<StoryVisualization, { kind: "
           `Batch receipt: ${formatShortDate(visualization.receivedDate)}.`,
           "This is the strongest upstream traceability anchor in the story.",
         ],
+        facts: [
+          { label: "Observed at", value: "Incoming receipt" },
+          { label: "Measurement", value: visualization.batchId },
+          { label: "Relevant info", value: formatShortDate(visualization.receivedDate) },
+        ],
       },
       {
         id: "exposure",
@@ -140,19 +152,36 @@ function buildSupplierGraph(visualization: Extract<StoryVisualization, { kind: "
           `${visualization.affectedProducts} of ${visualization.exposedProducts} exposed products were affected.`,
           "Use exposure before deciding supplier containment scope.",
         ],
-      },
-      {
-        id: "tests",
-        kind: "evidence",
-        title: "ESR signal",
-        value: `${outcomeCount(visualization.testOutcomes, "MARGINAL")} marginal / ${outcomeCount(visualization.testOutcomes, "FAIL")} fail`,
-        tone: "warning",
-        position: { x: 24, y: 300 },
-        detail: [
-          `${outcomeCount(visualization.testOutcomes, "PASS")} PASS on the same cohort.`,
-          "Marginal and fail outcomes support the batch hypothesis rather than proving it alone.",
+        facts: [
+          { label: "Observed at", value: "Installed cohort" },
+          {
+            label: "Measurement",
+            value: `${visualization.affectedProducts}/${visualization.exposedProducts} affected`,
+          },
+          { label: "Deviation", value: `${hitRate} hit rate` },
         ],
       },
+      ...(hasTestSignal
+        ? [
+            {
+              id: "tests",
+              kind: "evidence" as const,
+              title: "ESR signal",
+              value: `${outcomeCount(visualization.testOutcomes, "MARGINAL")} marginal / ${outcomeCount(visualization.testOutcomes, "FAIL")} fail`,
+              tone: "warning" as const,
+              position: { x: 24, y: 300 },
+              detail: [
+                `${passCount} PASS on the same cohort.`,
+                "Marginal and fail outcomes support the batch hypothesis rather than proving it alone.",
+              ],
+              facts: [
+                { label: "Observed at", value: "ESR measurement" },
+                { label: "Measurement", value: `${marginalCount} marginal / ${failCount} fail` },
+                { label: "Relevant info", value: `${passCount} pass on same cohort` },
+              ],
+            },
+          ]
+        : []),
       {
         id: "pattern",
         kind: "evidence",
@@ -164,6 +193,11 @@ function buildSupplierGraph(visualization: Extract<StoryVisualization, { kind: "
         detail: [
           "The causal chain is batch to installed cohort to factory defects to field claims.",
           ...visualization.annotations,
+        ],
+        facts: [
+          { label: "Observed at", value: "Batch -> assembly -> field" },
+          { label: "Measurement", value: `${defectCount} factory / ${claimCount} field` },
+          { label: "Deviation", value: `${hitRate} hit rate, delayed claim lag` },
         ],
       },
       {
@@ -177,6 +211,11 @@ function buildSupplierGraph(visualization: Extract<StoryVisualization, { kind: "
           `${defectCount} in-factory defects align to the same similarity pattern.`,
           "These defects establish the production-side signature before field escape.",
         ],
+        facts: [
+          { label: "Observed at", value: "Factory defect records" },
+          { label: "Measurement", value: `${defectCount} SOLDER_COLD events` },
+          { label: "Relevant info", value: `${claimCount} field claims downstream` },
+        ],
       },
       {
         id: "field",
@@ -189,12 +228,17 @@ function buildSupplierGraph(visualization: Extract<StoryVisualization, { kind: "
           `${claimCount} field claims follow the same suspected component exposure path.`,
           "The delay window matters because it ties installation to later customer failure.",
         ],
+        facts: [
+          { label: "Observed at", value: "Customer field claims" },
+          { label: "Measurement", value: `${claimCount} claim(s)` },
+          { label: "Deviation", value: "4-8 week lag cluster" },
+        ],
       },
     ],
     edges: [
       { id: "batch-pattern", source: "batch", target: "pattern", label: "traceable batch" },
       { id: "exposure-pattern", source: "exposure", target: "pattern", label: "installed into" },
-      { id: "tests-pattern", source: "tests", target: "pattern", label: "supports" },
+      ...(hasTestSignal ? [{ id: "tests-pattern", source: "tests", target: "pattern", label: "supports" }] : []),
       { id: "pattern-factory", source: "pattern", target: "factory", label: "shows up as" },
       { id: "factory-field", source: "factory", target: "field", label: "escapes to field" },
     ],
@@ -226,6 +270,14 @@ function buildProcessGraph(visualization: Extract<StoryVisualization, { kind: "p
           "This story is strongest when the spike is short-lived and contained to a specific window.",
           `Peak week ${peakLabel} carries the highest combined defect and test signal.`,
         ],
+        facts: [
+          { label: "Observed at", value: peakLabel },
+          {
+            label: "Measurement",
+            value: `${peakPoint?.defectCount ?? 0} defects / ${peakPoint?.failCount ?? 0} fail / ${peakPoint?.marginalCount ?? 0} marginal`,
+          },
+          { label: "Deviation", value: "Short-lived spike, not chronic drift" },
+        ],
       },
       {
         id: "gate",
@@ -239,6 +291,11 @@ function buildProcessGraph(visualization: Extract<StoryVisualization, { kind: "p
         targetPosition: Position.Bottom,
         detail: [
           "The process spike needs both a plausible assembly-step cause and a bounded production window.",
+        ],
+        facts: [
+          { label: "Observed at", value: "Causal gate" },
+          { label: "Measurement", value: "Assembly step + time window" },
+          { label: "Relevant info", value: "Both branches matter here" },
         ],
       },
       {
@@ -255,6 +312,14 @@ function buildProcessGraph(visualization: Extract<StoryVisualization, { kind: "p
           `Focus section: ${visualization.section}.`,
           "Treat this as the most likely process mechanism, not a proven singular root cause.",
         ],
+        facts: [
+          { label: "Observed at", value: visualization.section },
+          {
+            label: "Measurement",
+            value: `${peakPoint?.failCount ?? 0} fail / ${peakPoint?.marginalCount ?? 0} marginal`,
+          },
+          { label: "Relevant info", value: "Likely mechanism, not proof" },
+        ],
       },
       {
         id: "window",
@@ -270,6 +335,11 @@ function buildProcessGraph(visualization: Extract<StoryVisualization, { kind: "p
           "Contained, time-boxed spikes are more diagnostic than cumulative volume here.",
           "If the pattern disappears after the window closes, that supports process drift over chronic design issues.",
         ],
+        facts: [
+          { label: "Observed at", value: "Weekly signal window" },
+          { label: "Measurement", value: peakLabel },
+          { label: "Deviation", value: "Contained production window" },
+        ],
       },
       {
         id: "section",
@@ -280,6 +350,11 @@ function buildProcessGraph(visualization: Extract<StoryVisualization, { kind: "p
         position: { x: 112, y: 378 },
         detail: [
           "Occurrence section anchors the likely origin of the fault in the production flow.",
+        ],
+        facts: [
+          { label: "Observed at", value: "Occurrence section" },
+          { label: "Measurement", value: visualization.section },
+          { label: "Relevant info", value: "Most likely origin step" },
         ],
       },
       {
@@ -294,6 +369,11 @@ function buildProcessGraph(visualization: Extract<StoryVisualization, { kind: "p
           "Marginal and fail tests help validate the spike around the same period.",
           "This signal supports the drift hypothesis, but the inspection hotspot should not be mistaken for cause.",
         ],
+        facts: [
+          { label: "Observed at", value: "VIB_TEST measurement" },
+          { label: "Measurement", value: `${peakPoint?.failCount ?? 0} fail / ${peakPoint?.marginalCount ?? 0} marginal` },
+          { label: "Deviation", value: "Correlates with defect spike" },
+        ],
       },
       {
         id: "noise",
@@ -306,6 +386,11 @@ function buildProcessGraph(visualization: Extract<StoryVisualization, { kind: "p
         detail: [
           "Pruefung Linie 2 is a detection hotspot and should be read as an amplifier of visibility, not root cause.",
           `${visualization.filteredFalsePositives} false-positive inspection events were filtered out before pattern scoring.`,
+        ],
+        facts: [
+          { label: "Observed at", value: "Inspection hotspot" },
+          { label: "Measurement", value: `${visualization.filteredFalsePositives} false positives filtered` },
+          { label: "Relevant info", value: "Detection amplifier, not cause" },
         ],
       },
     ],
@@ -342,6 +427,11 @@ function buildDesignGraph(visualization: Extract<StoryVisualization, { kind: "de
           "This story emerges in customer use rather than through a strong factory defect cluster.",
           `${visualization.overlappingClaims} claim(s) still overlap factory defects, so the pattern is mostly field-only rather than absolute.`,
         ],
+        facts: [
+          { label: "Observed at", value: "Customer field claims" },
+          { label: "Measurement", value: `${totalClaims} delayed claim(s)` },
+          { label: "Deviation", value: `${dominantLag?.label ?? "8-12 wk"} after build` },
+        ],
       },
       {
         id: "gate",
@@ -356,6 +446,11 @@ function buildDesignGraph(visualization: Extract<StoryVisualization, { kind: "de
         detail: [
           "The delayed field pattern is best explained when BOM hotspot, delayed stress, and missing factory signal line up together.",
         ],
+        facts: [
+          { label: "Observed at", value: "Causal gate" },
+          { label: "Measurement", value: "BOM + lag + factory gap" },
+          { label: "Relevant info", value: "Multi-factor explanation" },
+        ],
       },
       {
         id: "bom",
@@ -368,6 +463,11 @@ function buildDesignGraph(visualization: Extract<StoryVisualization, { kind: "de
         detail: [
           `The hotspot centers on ${visualization.assembly} at ${visualization.findNumber}.`,
           "Use this node to anchor the design review and targeted validation work.",
+        ],
+        facts: [
+          { label: "Observed at", value: "BOM traceability" },
+          { label: "Measurement", value: `${visualization.assembly} / ${visualization.findNumber}` },
+          { label: "Relevant info", value: "Target for engineering validation" },
         ],
       },
       {
@@ -382,6 +482,11 @@ function buildDesignGraph(visualization: Extract<StoryVisualization, { kind: "de
           "The failure window suggests customer-use stress that short factory tests are unlikely to catch.",
           `Most common lag bucket: ${dominantLag?.label ?? "not enough evidence yet"}.`,
         ],
+        facts: [
+          { label: "Observed at", value: "Claim lag analysis" },
+          { label: "Measurement", value: dominantLag?.label ?? "Not enough evidence yet" },
+          { label: "Deviation", value: "Delayed post-build emergence" },
+        ],
       },
       {
         id: "factoryGap",
@@ -395,6 +500,11 @@ function buildDesignGraph(visualization: Extract<StoryVisualization, { kind: "de
           `${visualization.fieldOnlyClaims} claim(s) have no linked factory defect.`,
           `${visualization.overlappingClaims} claim(s) still overlap factory data, which is why this remains a strong hypothesis rather than direct proof.`,
         ],
+        facts: [
+          { label: "Observed at", value: "Factory vs field join" },
+          { label: "Measurement", value: `${visualization.fieldOnlyClaims}/${totalClaims} field-only` },
+          { label: "Deviation", value: `${visualization.overlappingClaims} still overlap` },
+        ],
       },
       {
         id: "hypothesis",
@@ -407,6 +517,11 @@ function buildDesignGraph(visualization: Extract<StoryVisualization, { kind: "de
         detail: [
           "Thermal drift is the leading explanation supported by lag, BOM location, and complaint language.",
           "Present it as an engineering hypothesis until dedicated validation proves the mechanism.",
+        ],
+        facts: [
+          { label: "Observed at", value: "Engineering inference" },
+          { label: "Measurement", value: "Lag + BOM hotspot + field-only pattern" },
+          { label: "Relevant info", value: "Suspected, not directly measured" },
         ],
       },
     ],
@@ -440,6 +555,11 @@ function buildHandlingGraph(visualization: Extract<StoryVisualization, { kind: "
         detail: [
           "The pattern repeats across a small cluster of orders rather than the full plant output.",
         ],
+        facts: [
+          { label: "Observed at", value: "Recurring order set" },
+          { label: "Measurement", value: `${visualization.orderMatrix.orders.length} order(s)` },
+          { label: "Relevant info", value: "Clustered, not plant-wide" },
+        ],
       },
       {
         id: "join",
@@ -452,6 +572,11 @@ function buildHandlingGraph(visualization: Extract<StoryVisualization, { kind: "
         detail: [
           "This operator signal is not visible from defects alone.",
           "You need the rework join to surface the user-level pattern.",
+        ],
+        facts: [
+          { label: "Observed at", value: "Defect / rework join" },
+          { label: "Measurement", value: `${visualization.orderMatrix.operators.length} operator(s) compared` },
+          { label: "Relevant info", value: "Discovery requires joined evidence" },
         ],
       },
       {
@@ -466,6 +591,11 @@ function buildHandlingGraph(visualization: Extract<StoryVisualization, { kind: "
           `Dominant operator in the cluster: ${visualization.operator}.`,
           "Treat this as a targeted coaching or station-handling signal, not a blanket attribution.",
         ],
+        facts: [
+          { label: "Observed at", value: "Rework records" },
+          { label: "Measurement", value: visualization.operator },
+          { label: "Relevant info", value: "Station-handling signal" },
+        ],
       },
       {
         id: "severity",
@@ -477,6 +607,11 @@ function buildHandlingGraph(visualization: Extract<StoryVisualization, { kind: "
         width: 188,
         detail: [
           "Low severity still matters when the same operator and order cluster repeat.",
+        ],
+        facts: [
+          { label: "Observed at", value: "Defect severity mix" },
+          { label: "Measurement", value: dominantSeverity },
+          { label: "Relevant info", value: "Mostly cosmetic pattern" },
         ],
       },
       {
@@ -491,6 +626,11 @@ function buildHandlingGraph(visualization: Extract<StoryVisualization, { kind: "
           `${topMatrixCell?.count ?? 0} is the strongest order/operator rework link count in the current matrix.`,
           "This is an attribution cluster, not a classical physical fault tree.",
         ],
+        facts: [
+          { label: "Observed at", value: "Order/operator matrix" },
+          { label: "Measurement", value: `${topMatrixCell?.count ?? 0} strongest links` },
+          { label: "Deviation", value: "Repeat attribution cluster" },
+        ],
       },
       {
         id: "actions",
@@ -503,6 +643,14 @@ function buildHandlingGraph(visualization: Extract<StoryVisualization, { kind: "
         detail: [
           visualization.actionSnapshot.latestAction,
           "Follow-up closes the loop on training, packaging handling, or station changes.",
+        ],
+        facts: [
+          { label: "Observed at", value: "Corrective action log" },
+          {
+            label: "Measurement",
+            value: `${visualization.actionSnapshot.closedActions} closed / ${visualization.actionSnapshot.openActions} open`,
+          },
+          { label: "Relevant info", value: "Follow-up in progress" },
         ],
       },
     ],
@@ -596,6 +744,7 @@ export function StoryEvidenceGraph({ visualization }: Props) {
         title: node.title,
         value: node.value,
         detail: node.detail ?? [],
+        facts: node.facts ?? [],
         tone: node.tone ?? "neutral",
         gateLabel: node.gateLabel,
       },
@@ -666,20 +815,20 @@ export function StoryEvidenceGraph({ visualization }: Props) {
 
   return (
     <div className="story-graph-shell">
-      <div className="story-graph-canvas-wrap">
-        <div className="story-graph-toolbar">
-          <p>Click a node to inspect the evidence path.</p>
-        </div>
-        <div
-          className="story-graph-canvas"
-          style={{ height: `${blueprint.height ?? 420}px` }}
-        >
+      <div className="story-graph-toolbar">
+        <p>Click a node to inspect the evidence path.</p>
+      </div>
+      <div
+        className="story-graph-canvas-wrap"
+        style={{ height: `${blueprint.height ?? 420}px` }}
+      >
+        <div className="story-graph-canvas">
           <ReactFlow
             nodes={nodes}
             edges={edges}
             nodeTypes={nodeTypes}
             fitView
-            fitViewOptions={{ padding: 0.15 }}
+            fitViewOptions={{ padding: 0.2 }}
             nodesDraggable={false}
             nodesConnectable={false}
             zoomOnDoubleClick={false}
@@ -691,17 +840,25 @@ export function StoryEvidenceGraph({ visualization }: Props) {
             <Controls showInteractive={false} position="bottom-left" />
           </ReactFlow>
         </div>
+        <aside className="story-graph-detail story-graph-detail-overlay">
+          <span>Selected evidence</span>
+          <strong>{selectedNode?.title}</strong>
+          <p className="story-graph-detail-value">{selectedNode?.value.replaceAll("\n", " · ")}</p>
+          <div className="story-graph-facts">
+            {(selectedNode?.facts ?? []).map((fact) => (
+              <div className="story-graph-fact" key={`${selectedNode?.id}-${fact.label}`}>
+                <span>{fact.label}</span>
+                <strong>{fact.value}</strong>
+              </div>
+            ))}
+          </div>
+          <ul className="bullet-list compact">
+            {(selectedNode?.detail ?? []).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </aside>
       </div>
-      <aside className="story-graph-detail card-surface">
-        <span>Selected evidence</span>
-        <strong>{selectedNode?.title}</strong>
-        <p className="story-graph-detail-value">{selectedNode?.value.replaceAll("\n", " · ")}</p>
-        <ul className="bullet-list compact">
-          {(selectedNode?.detail ?? []).map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </aside>
     </div>
   );
 }

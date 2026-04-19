@@ -183,6 +183,20 @@ export type StoryVisualization =
       annotations: string[];
     };
 
+export type TraceabilityFact = {
+  label: string;
+  value: string;
+  highlight?: boolean;
+};
+
+export type CaseTraceability = {
+  title: string;
+  summary: string;
+  mermaid: string;
+  facts: TraceabilityFact[];
+  notes: string[];
+};
+
 export type TeamTicket = {
   system: "GitHub" | "Service Cloud" | "QMS";
   ticketId: string;
@@ -231,6 +245,7 @@ export type QontrolCase = {
   evidenceTrail: string[];
   triageContext: TriageContext;
   visualization: StoryVisualization;
+  traceability?: CaseTraceability;
   proposedFix: ProposedFix;
   requestedAction: {
     containment: string;
