@@ -455,7 +455,7 @@ export function QontrolApp() {
             tooltip="Total cases in Unassigned or Assigned state that still need resolution."
           />
           <MetricCard
-            label="Needs follow-up now"
+            label="Needs follow-up"
             value={orderedCases.filter((c) => c.state !== "unassigned" && isFollowUpOverdue(c)).length}
             tooltip="Assigned or in-progress cases where the severity-based response window has elapsed without an update."
           />
