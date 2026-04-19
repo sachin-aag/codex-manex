@@ -15,13 +15,8 @@
   </defs>
 
   <rect width="1400" height="820" rx="32" fill="#F8FAFC"/>
-  <text x="700" y="76" text-anchor="middle" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="40" font-weight="700">Qontrol ecosystem</text>
-  <text x="700" y="108" text-anchor="middle" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="500">
-    <tspan x="700" dy="0">One QM control layer connecting tools</tspan>
-    <tspan x="700" dy="24">every team already uses</tspan>
-  </text>
 
-  <g transform="translate(0, 32)">
+  <g transform="translate(0, -36)">
   <circle cx="700" cy="410" r="258" stroke="url(#ringGradient)" stroke-width="3" stroke-dasharray="4 14" opacity="0.45"/>
 
   <path d="M700 410 L700 184" stroke="#0EA5E9" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 10"/>
@@ -38,8 +33,7 @@
     <circle cx="700" cy="410" r="126" fill="url(#qontrolGradient)"/>
     <rect x="650" y="354" width="100" height="100" rx="26" fill="white" fill-opacity="0.12"/>
     <path d="M697 344C670.49 344 649 365.49 649 392C649 418.51 670.49 440 697 440C711.055 440 723.71 433.957 732.481 424.332L717.828 409.68C713.116 414.839 705.614 418.065 697.352 418.065C683.429 418.065 672.161 406.797 672.161 392.874C672.161 378.952 683.429 367.683 697.352 367.683C711.274 367.683 722.543 378.952 722.543 392.874V397.972H695.944V419.421H745V392.874C745 365.49 723.51 344 697 344Z" fill="white"/>
-    <text x="700" y="492" text-anchor="middle" fill="white" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">Qontrol</text>
-    <text x="700" y="521" text-anchor="middle" fill="#DBEAFE" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="500">Take Control of Quality.</text>
+    <text x="700" y="502" text-anchor="middle" fill="white" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">Qontrol</text>
   </g>
 
   <g filter="url(#softShadow)">

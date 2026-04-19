@@ -4,9 +4,15 @@
 
 Qontrol gives quality teams one control tower for routing, follow-up, and portfolio insight.
 
-[![Take Qontrol Now](qontrol/public/brand/qontrol-cta.svg)](https://codexmanexqontrol.vercel.app/)
-
-**[Take Qontrol Now](https://codexmanexqontrol.vercel.app/)** (plain link; use this if your viewer does not show the teal button image above.)
+<p align="center">
+  <a href="https://codexmanexqontrol.vercel.app/">
+    <img src="qontrol/public/brand/qontrol-cta.svg" alt="Take Qontrol Now" width="380" />
+  </a>
+</p>
+<p align="center">
+  <strong><a href="https://codexmanexqontrol.vercel.app/">Take Qontrol Now</a></strong><br />
+  <sub>Plain link if your viewer does not show the button image above.</sub>
+</p>
 
 ![Qontrol ecosystem: QM connected to R&D, customer support, supply chain, and manufacturing tools](qontrol/public/brand/qontrol-ecosystem-hero.svg)
 
