@@ -1,14 +1,14 @@
 # Qontrol
 
-![Qontrol logo and slogan: Take Control of Quality](public/brand/qontrol-lockup.svg)
+![Qontrol logo and slogan: Take Control of Quality](qontrol/public/brand/qontrol-lockup.svg)
 
 Qontrol gives quality teams one control tower for routing, follow-up, and portfolio insight.
 
-[![Take Qontrol Now](public/brand/qontrol-cta.svg)](https://codexmanexqontrol.vercel.app/)
+[![Take Qontrol Now](qontrol/public/brand/qontrol-cta.svg)](https://codexmanexqontrol.vercel.app/)
 
 **[Take Qontrol Now](https://codexmanexqontrol.vercel.app/)** (plain link; use this if your viewer does not show the teal button image above.)
 
-![Qontrol ecosystem: QM connected to R&D, customer support, supply chain, and manufacturing tools](public/brand/qontrol-ecosystem-hero.svg)
+![Qontrol ecosystem: QM connected to R&D, customer support, supply chain, and manufacturing tools](qontrol/public/brand/qontrol-ecosystem-hero.svg)
 
 Quality issues move across functions fast. Ownership does not.
 
@@ -94,7 +94,7 @@ Open [http://127.0.0.1:3005](http://127.0.0.1:3005).
 
 ### Environment Variables
 
-Create `.env.local` from `.env.example`, then set:
+Inside `qontrol/`, create `.env.local` from `.env.example`, then set:
 
 - `MANEX_API_URL`: PostgREST base URL for your team environment
 - `MANEX_API_KEY`: anon API key for the shared dataset
@@ -152,7 +152,7 @@ flowchart LR
     B --> F[Live connector<br/>GitHub]
     F --> B
     B -. planned .-> G[Future connectors<br/>Jira, Zendesk, ERP, MES, QMS, supplier portals]
-    B --> H[Generated report artifacts<br/>public/reports]
+    B --> H[Generated report artifacts<br/>qontrol/public/reports]
 ```
 
 ### Frontend
