@@ -19,6 +19,15 @@ type GitHubIssue = {
   labels: Array<{ name: string }>;
 };
 
+type GitHubIssueComment = {
+  id: number;
+  body: string | null;
+  html_url: string;
+  created_at: string;
+  updated_at: string;
+  user?: { login?: string };
+};
+
 type GitHubProjectItem = {
   id: number;
   project_url: string;
@@ -85,6 +94,7 @@ async function githubRequest<T>(
 export async function createGitHubIssue(payload: {
   title: string;
   body: string;
+  labels?: string[];
 }) {
   const { repoOwner, repoName } = getGitHubConfig();
   return githubRequest<GitHubIssue>(`/repos/${repoOwner}/${repoName}/issues`, {
@@ -92,6 +102,7 @@ export async function createGitHubIssue(payload: {
     body: {
       title: payload.title,
       body: payload.body,
+      ...(payload.labels?.length ? { labels: payload.labels } : {}),
     },
   });
 }
@@ -101,6 +112,7 @@ export async function updateGitHubIssue(
   payload: {
     title: string;
     body: string;
+    labels?: string[];
   },
 ) {
   const { repoOwner, repoName } = getGitHubConfig();
@@ -109,6 +121,7 @@ export async function updateGitHubIssue(
     body: {
       title: payload.title,
       body: payload.body,
+      ...(payload.labels?.length ? { labels: payload.labels } : {}),
     },
   });
 }
@@ -116,6 +129,17 @@ export async function updateGitHubIssue(
 export async function getGitHubIssue(issueNumber: number) {
   const { repoOwner, repoName } = getGitHubConfig();
   return githubRequest<GitHubIssue>(`/repos/${repoOwner}/${repoName}/issues/${issueNumber}`);
+}
+
+export async function listGitHubIssueComments(
+  issueNumber: number,
+  options: { perPage?: number } = {},
+) {
+  const { repoOwner, repoName } = getGitHubConfig();
+  const perPage = Math.max(1, Math.min(options.perPage ?? 20, 100));
+  return githubRequest<GitHubIssueComment[]>(
+    `/repos/${repoOwner}/${repoName}/issues/${issueNumber}/comments?sort=updated&direction=desc&per_page=${perPage}`,
+  );
 }
 
 export async function addIssueToGitHubProject(issueNumber: number) {
@@ -176,5 +200,6 @@ export function verifyGitHubWebhookSignature(
 
 export type {
   GitHubIssue,
+  GitHubIssueComment,
   GitHubProjectItem,
 };

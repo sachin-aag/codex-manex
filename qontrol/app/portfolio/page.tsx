@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ClaimLagScatter } from "@/components/dashboard/ClaimLagScatter";
 import { CostWaterfall } from "@/components/dashboard/CostWaterfall";
@@ -21,22 +20,17 @@ import type {
   ClaimScatterPoint,
   CostBreakdownData,
   ParetoRow,
-  PortfolioKpis,
   SectionHeatmapData,
   SeverityStackRow,
   SeverityTotals,
   WeeklyTrendPoint,
 } from "@/lib/portfolio-data";
 
-type Backlog = { open: number; done: number; total: number };
-
 type PortfolioPayload = {
-  kpis?: PortfolioKpis;
   range?: { from: string; to: string } | null;
   pareto: ParetoRow[];
   weeklyRollup: WeeklyTrendPoint[];
   claimLag: ClaimLagRow[];
-  backlog: Backlog;
   sectionHeatmap: SectionHeatmapData;
   severityByOccurrence: SeverityStackRow[];
   costBreakdown: CostBreakdownData;
@@ -129,7 +123,6 @@ export default function PortfolioPage() {
     pareto,
     weeklyRollup,
     claimLag,
-    backlog,
     sectionHeatmap,
     severityByOccurrence,
     severityTotals,
@@ -333,36 +326,6 @@ export default function PortfolioPage() {
                 No batch-level defect data for this view.
               </p>
             ) : null}
-          </div>
-        </div>
-      </section>
-
-      <section className="pf-section">
-        <div className="panel-header">
-          <div>
-            <h2>Initiative backlog</h2>
-            <p>Open, completed, and total corrective actions.</p>
-          </div>
-          <Link
-            href="/portfolio/initiatives"
-            className="secondary-button"
-            style={{ textDecoration: "none" }}
-          >
-            Open initiatives →
-          </Link>
-        </div>
-        <div className="pf-backlog-grid">
-          <div className="metric-block">
-            <span>Open</span>
-            <strong>{backlog.open}</strong>
-          </div>
-          <div className="metric-block">
-            <span>Done / closed</span>
-            <strong>{backlog.done}</strong>
-          </div>
-          <div className="metric-block">
-            <span>Total</span>
-            <strong>{backlog.total}</strong>
           </div>
         </div>
       </section>

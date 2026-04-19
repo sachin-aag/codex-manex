@@ -164,17 +164,6 @@ export type BatchRankingRow = {
   received_date: string | null;
 };
 
-export type InitiativeRow = {
-  action_id: string;
-  product_id: string;
-  ts: string;
-  action_type: string;
-  status: string;
-  user_id: string | null;
-  comments: string | null;
-  defect_id: string | null;
-};
-
 export async function fetchQualitySummary(
   range?: UtcRange | null,
 ): Promise<QualitySummaryRow[]> {
@@ -265,25 +254,6 @@ export async function fetchRework(
     ? timestampRangeAppend("ts", range.startIso, range.endIso)
     : undefined;
   return postgrestRequest<ReworkRow[]>("rework", {
-    query,
-    queryAppend,
-  });
-}
-
-export async function fetchInitiatives(
-  range?: UtcRange | null,
-  limit = 20_000,
-): Promise<InitiativeRow[]> {
-  const query: Record<string, string> = {
-    order: "ts.desc",
-    limit: String(limit),
-    select:
-      "action_id,product_id,ts,action_type,status,user_id,comments,defect_id",
-  };
-  const queryAppend = range
-    ? timestampRangeAppend("ts", range.startIso, range.endIso)
-    : undefined;
-  return postgrestRequest<InitiativeRow[]>("product_action", {
     query,
     queryAppend,
   });
@@ -636,54 +606,6 @@ export function computeBomBatchRanking(
     });
   }
   return rows.sort((a, b) => b.defect_rate - a.defect_rate);
-}
-
-export type PortfolioKpis = {
-  totalDefects: number;
-  totalClaims: number;
-  openInitiatives: number;
-  closedInitiatives: number;
-  defectRateRecent: number;
-  topDefectCode: string;
-};
-
-export function computeKpis(
-  defects: DefectDetailRow[],
-  claims: ClaimDetailRow[],
-  initiatives: InitiativeRow[],
-  summary: QualitySummaryRow[],
-  opts?: { totalProductCount?: number },
-): PortfolioKpis {
-  const open = initiatives.filter(
-    (i) => i.status === "open" || i.status === "in_progress"
-  ).length;
-  const closed = initiatives.filter(
-    (i) => i.status === "done" || i.status === "closed"
-  ).length;
-
-  const recentWeeks = summary.slice(-8);
-  const totalProdRolling = recentWeeks.reduce((s, r) => s + r.products_built, 0);
-  const totalDefRolling = recentWeeks.reduce((s, r) => s + r.defect_count, 0);
-  const defectiveProductCount = new Set(defects.map((d) => d.product_id)).size;
-  const catalogN = opts?.totalProductCount;
-  const dr =
-    catalogN != null && catalogN > 0
-      ? defectiveProductCount / catalogN
-      : totalProdRolling > 0
-        ? totalDefRolling / totalProdRolling
-        : 0;
-
-  const pareto = computePareto(defects);
-  const topCode = pareto[0]?.defect_code ?? "—";
-
-  return {
-    totalDefects: defects.length,
-    totalClaims: claims.length,
-    openInitiatives: open,
-    closedInitiatives: closed,
-    defectRateRecent: dr,
-    topDefectCode: topCode,
-  };
 }
 
 export type LearningSignal = {

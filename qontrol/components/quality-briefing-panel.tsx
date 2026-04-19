@@ -12,7 +12,7 @@ type BriefingResponse = {
 };
 
 const ID_PATTERN =
-  /\b(DEF-[0-9]{5}|PRD-[0-9]{5}|PA-[0-9]{5}|FC-[0-9]{5}|TR-[0-9]{6})\b/g;
+  /\b(DEF-[0-9]{5}|PRD-[0-9]{5}|FC-[0-9]{5}|TR-[0-9]{6})\b/g;
 
 function linkifyIds(text: string): ReactNode[] {
   const out: ReactNode[] = [];
@@ -28,7 +28,6 @@ function linkifyIds(text: string): ReactNode[] {
     }
     const id = m[0];
     let href = "/portfolio";
-    if (id.startsWith("PA-")) href = "/portfolio/initiatives";
     out.push(
       <Link key={`l-${key++}`} href={href} className="briefing-id-link">
         {id}
