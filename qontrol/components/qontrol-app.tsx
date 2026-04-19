@@ -47,6 +47,7 @@ export function QontrolApp() {
   const [isMutating, setIsMutating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showClosedModal, setShowClosedModal] = useState(false);
+  const [expandedColumns, setExpandedColumns] = useState<Set<string>>(new Set());
 
   const orderedCases = useMemo(() => {
     return Object.values(cases).sort((a, b) => {
@@ -509,18 +510,38 @@ export function QontrolApp() {
                   →
                 </button>
               </div>
-              <div className="focused-kanban-cards">
-                {orderedCases
-                  .filter((item) => item.state === focusedCategory)
-                  .map((item) => (
-                    <TicketCard
-                      key={item.id}
-                      item={item}
-                      isSelected={selectedId === item.id}
-                      onSelect={handleTicketSelect}
-                    />
-                  ))}
-              </div>
+              {(() => {
+                const focusedCases = orderedCases.filter((item) => item.state === focusedCategory);
+                const isFocusedExpanded = expandedColumns.has(`focused-${focusedCategory}`);
+                const COLUMN_LIMIT = 10;
+                const hasMoreFocused = focusedCases.length > COLUMN_LIMIT;
+                const visibleFocused = isFocusedExpanded ? focusedCases : focusedCases.slice(0, COLUMN_LIMIT);
+                return (
+                  <>
+                    <div className={`focused-kanban-cards ${!isFocusedExpanded && hasMoreFocused ? "column-cards-faded" : ""}`}>
+                      {visibleFocused.map((item) => (
+                        <TicketCard
+                          key={item.id}
+                          item={item}
+                          isSelected={selectedId === item.id}
+                          onSelect={handleTicketSelect}
+                        />
+                      ))}
+                    </div>
+                    {hasMoreFocused && !isFocusedExpanded ? (
+                      <button
+                        className="show-more-button"
+                        onClick={() =>
+                          setExpandedColumns((prev) => new Set([...prev, `focused-${focusedCategory}`]))
+                        }
+                        type="button"
+                      >
+                        Show more ({focusedCases.length - COLUMN_LIMIT} remaining)
+                      </button>
+                    ) : null}
+                  </>
+                );
+              })()}
             </div>
 
             <div className="focused-detail">
@@ -939,6 +960,10 @@ export function QontrolApp() {
               const columnCases = orderedCases.filter(
                 (item) => item.state === column.key,
               );
+              const isExpanded = expandedColumns.has(column.key);
+              const COLUMN_LIMIT = 10;
+              const hasMore = columnCases.length > COLUMN_LIMIT;
+              const visibleCases = isExpanded ? columnCases : columnCases.slice(0, COLUMN_LIMIT);
 
               return (
                 <div className="board-column" key={column.key}>
@@ -948,8 +973,8 @@ export function QontrolApp() {
                       <span>{columnCases.length} cases</span>
                     </div>
                   </div>
-                  <div className="column-cards">
-                    {columnCases.map((item) => (
+                  <div className={`column-cards ${!isExpanded && hasMore ? "column-cards-faded" : ""}`}>
+                    {visibleCases.map((item) => (
                       <TicketCard
                         key={item.id}
                         item={item}
@@ -958,6 +983,17 @@ export function QontrolApp() {
                       />
                     ))}
                   </div>
+                  {hasMore && !isExpanded ? (
+                    <button
+                      className="show-more-button"
+                      onClick={() =>
+                        setExpandedColumns((prev) => new Set([...prev, column.key]))
+                      }
+                      type="button"
+                    >
+                      Show more ({columnCases.length - COLUMN_LIMIT} remaining)
+                    </button>
+                  ) : null}
                 </div>
               );
             })}
