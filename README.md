@@ -69,6 +69,23 @@ The same discipline applies to AI. Qontrol does not use AI for the sake of AI. W
 - 🧠 AI-generated briefings, recommendations, and chat-based portfolio analysis
 - 📑 Executive report generation for management review
 
+## 📊 Per-ticket plots and context
+
+Every case on the QM board opens into a full ticket workspace so triage is not a wall of text. Alongside routing and ownership, Qontrol assembles **operational overview**, **triage signals**, **story match** (why this pattern fits), **proposed fix** with an AI-generated summary, and **routing** context (who should act next and why).
+
+The **evidence trail** is where the visuals live. It always includes a **story evidence graph** (interactive cause-and-effect view) and **supporting facts** drawn from the data. When lineage is available, you also get an interactive **traceability tree** (React Flow): pan, zoom, and click blocks to follow supplier lot → BOM slot → unit under review → line and inspection → measurement/spec → issue → downstream impact.
+
+![Traceability tree: schema-driven lineage from supplier batch through build, discovery, measurement, and impact](qontrol/public/readme/traceability-tree.png)
+
+What you see next depends on the **story type** Qontrol infers for that ticket:
+
+- **Supplier / batch signal** — cohort hit-rate KPIs, **field-claim lag** distribution, **ESR test outcome** bars, plus supplier and batch identifiers.
+- **Process / line signal** — focus section and **peak window** KPIs, false-positive filter count, and a **signal window** (weekly defect / fail / marginal timeline).
+- **Design / BOM signal** — BOM position and assembly context, **lag buckets**, **evidence balance** (field-only vs overlapping factory-linked claims), and related design KPIs.
+- **Handling / operator pattern** — **order × operator** heat matrix, **severity mix** bars, and a **follow-up actions** snapshot (open vs closed, latest action text).
+
+Around that core, the workspace adds **similar issues** for comparison, a cross-system **timeline**, and **learnings** captured during routing and closure so the next reviewer inherits the thread.
+
 ## 🗺️ Product Tour
 
 - `/` for the QM control board, ticket detail workspace, routing actions, and case history

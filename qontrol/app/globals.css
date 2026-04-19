@@ -184,7 +184,6 @@ button {
   flex-direction: column;
   gap: 2px;
   padding: 8px 10px;
-  flex: 1;
 }
 
 .sidebar-link {
@@ -217,7 +216,6 @@ button {
 .sidebar-footer {
   padding: 12px 20px 0;
   border-top: 1px solid var(--border);
-  margin-top: auto;
 }
 
 .sidebar-assistant-button {
