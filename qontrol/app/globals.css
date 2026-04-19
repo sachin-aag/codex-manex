@@ -995,6 +995,50 @@ button {
   font-size: 13px;
 }
 
+.board-loading {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.board-loading-header {
+  padding: 16px 18px;
+  border-radius: var(--radius-card);
+  border: 1px solid color-mix(in srgb, var(--brand) 18%, var(--border));
+  background: color-mix(in srgb, var(--brand) 6%, var(--surface-elevated));
+}
+
+.board-loading-copy {
+  margin: 10px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.board-loading-spinner {
+  width: 16px;
+  height: 16px;
+}
+
+.board-loading-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.board-loading-column {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-muted) 72%, transparent);
+}
+
+.board-loading-card {
+  height: 124px;
+}
+
 .board-header,
 .panel-header {
   display: flex;

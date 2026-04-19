@@ -98,7 +98,7 @@ Fields: `defect_id`, `product_id`, `ts`, `source_type`, `defect_code`,
 External quality event. Customer reported failure post-ship.
 
 Fields: `field_claim_id`, `product_id`, `claim_ts`, `market`,
-`complaint_text` (German), `similar_to` (top 3 similar `field_claim_id`s by complaint text),
+`complaint_text` (German),
 `reported_part_number`, `image_url`, `cost`,
 `detected_section_id`, `mapped_defect_id`, `notes`.
 
@@ -157,7 +157,9 @@ for exact column definitions.
 
 - `v_defect_detail` — defect + product + article + detected/occurrence sections + reported part + test.
 - `v_product_bom_parts` — installed parts per product with batch + supplier.
-- `v_field_claim_detail` — claim + product + mapped defect + part + section + `days_from_build` + `similar_to`.
+- `v_field_claim_detail` — claim + product + mapped defect + part + section + `days_from_build`.
+
+Claim-to-claim similarity is now computed in the app at request time from complaint-text embeddings, rather than persisted in the database schema.
 - `v_quality_summary` — weekly rollup per article.
 
 ## DB roles

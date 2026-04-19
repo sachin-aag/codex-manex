@@ -188,11 +188,10 @@ export function QontrolApp() {
   );
   const relatedRouteCount = routeableSimilarCases.length;
   const similarTickets = selectedCase?.similarTickets.slice(0, 3) ?? [];
-  const usesComplaintSimilarity =
-    selectedCase?.sourceType === "claim" && selectedCase.similarClaimIds.length > 0;
+  const usesComplaintSimilarity = selectedCase?.sourceType === "claim";
   const similarPanelTitle = usesComplaintSimilarity ? "Similar claims" : "Similar tickets";
   const similarPanelDescription = usesComplaintSimilarity
-    ? "Top complaint-text matches pulled from other claim records."
+    ? "Top complaint-text matches generated in real time from other claim records."
     : "Operationally useful matches, not just semantic similarity.";
   const aiGeneratedLearning = selectedCase
     ? buildAiGeneratedLearning(similarTickets, selectedCase.defectType)
@@ -1883,7 +1882,7 @@ export function QontrolApp() {
               </div>
             </div>
           </div>
-          {isLoading ? <p className="board-status">Loading cases...</p> : null}
+          {isLoading ? <BoardLoadingState /> : null}
           {!isLoading && !hasVisibleCases ? (
             <p className="board-status">
               {allCases.length === 0
@@ -1891,49 +1890,51 @@ export function QontrolApp() {
                 : "No cases match the current filters."}
             </p>
           ) : null}
-          <div className="board-grid">
-            {kanbanCategories.map((column) => {
-              const columnCases = orderedCases.filter(
-                (item) => item.state === column.key,
-              );
-              const isExpanded = expandedColumns.has(column.key);
-              const COLUMN_LIMIT = 10;
-              const hasMore = columnCases.length > COLUMN_LIMIT;
-              const visibleCases = isExpanded ? columnCases : columnCases.slice(0, COLUMN_LIMIT);
+          {!isLoading ? (
+            <div className="board-grid">
+              {kanbanCategories.map((column) => {
+                const columnCases = orderedCases.filter(
+                  (item) => item.state === column.key,
+                );
+                const isExpanded = expandedColumns.has(column.key);
+                const COLUMN_LIMIT = 10;
+                const hasMore = columnCases.length > COLUMN_LIMIT;
+                const visibleCases = isExpanded ? columnCases : columnCases.slice(0, COLUMN_LIMIT);
 
-              return (
-                <div className="board-column" key={column.key}>
-                  <div className="column-header">
-                    <div>
-                      <h3>{column.label}</h3>
-                      <span>{columnCases.length} cases</span>
+                return (
+                  <div className="board-column" key={column.key}>
+                    <div className="column-header">
+                      <div>
+                        <h3>{column.label}</h3>
+                        <span>{columnCases.length} cases</span>
+                      </div>
                     </div>
+                    <div className={`column-cards ${!isExpanded && hasMore ? "column-cards-faded" : ""}`}>
+                      {visibleCases.map((item) => (
+                        <TicketCard
+                          key={item.id}
+                          item={item}
+                          isSelected={selectedId === item.id}
+                          onSelect={handleTicketSelect}
+                        />
+                      ))}
+                    </div>
+                    {hasMore && !isExpanded ? (
+                      <button
+                        className="show-more-button"
+                        onClick={() =>
+                          setExpandedColumns((prev) => new Set([...prev, column.key]))
+                        }
+                        type="button"
+                      >
+                        Show more ({columnCases.length - COLUMN_LIMIT} remaining)
+                      </button>
+                    ) : null}
                   </div>
-                  <div className={`column-cards ${!isExpanded && hasMore ? "column-cards-faded" : ""}`}>
-                    {visibleCases.map((item) => (
-                      <TicketCard
-                        key={item.id}
-                        item={item}
-                        isSelected={selectedId === item.id}
-                        onSelect={handleTicketSelect}
-                      />
-                    ))}
-                  </div>
-                  {hasMore && !isExpanded ? (
-                    <button
-                      className="show-more-button"
-                      onClick={() =>
-                        setExpandedColumns((prev) => new Set([...prev, column.key]))
-                      }
-                      type="button"
-                    >
-                      Show more ({columnCases.length - COLUMN_LIMIT} remaining)
-                    </button>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -2170,6 +2171,40 @@ function MetricBlock({
     <div className={`metric-block metric-${tone}`}>
       <span>{label}</span>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function BoardLoadingState() {
+  return (
+    <div aria-live="polite" className="board-loading" role="status">
+      <div className="board-loading-header">
+        <span aria-hidden="true" className="routing-loading-indicator">
+          <span className="routing-spinner board-loading-spinner" />
+          <span className="routing-loading-label">Loading cases...</span>
+        </span>
+        <p className="board-loading-copy">
+          Qontrol is pulling the latest case data and similarity context. This can take a few
+          seconds.
+        </p>
+      </div>
+      <div aria-hidden="true" className="board-loading-columns">
+        {kanbanCategories.map((column) => (
+          <div className="board-loading-column" key={column.key}>
+            <div className="column-header">
+              <div>
+                <h3>{column.label}</h3>
+                <span>Loading...</span>
+              </div>
+            </div>
+            <div className="column-cards">
+              {[0, 1, 2].map((index) => (
+                <div className="pf-skeleton board-loading-card" key={`${column.key}-${index}`} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -2453,6 +2488,15 @@ function formatOutcomeLabel(outcome: SimilarTicket["outcome"]) {
 }
 
 function getRouteableSimilarCases(selectedCase: QontrolCase, allCases: QontrolCase[]) {
+  if (selectedCase.sourceType === "claim") {
+    const caseById = new Map(allCases.map((candidate) => [candidate.id, candidate]));
+    return selectedCase.similarClaimIds.flatMap((claimId) => {
+      const candidate = caseById.get(claimId);
+      if (!candidate || candidate.state === "closed") return [];
+      return [candidate];
+    });
+  }
+
   return allCases.filter((candidate) => {
     if (candidate.id === selectedCase.id) return false;
     if (candidate.state === "closed") return false;
