@@ -372,6 +372,7 @@ button {
 
 .metric-card {
   padding: 16px;
+  position: relative;
 }
 
 .metric-card span {

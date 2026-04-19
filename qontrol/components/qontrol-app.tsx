@@ -449,14 +449,20 @@ export function QontrolApp() {
           </p>
         </div>
         <div className="hero-stats">
-          <MetricCard label="Open cases" value={countByState(orderedCases, "unassigned") + countByState(orderedCases, "assigned")} />
+          <MetricCard
+            label="Open cases"
+            value={countByState(orderedCases, "unassigned") + countByState(orderedCases, "assigned")}
+            tooltip="Total cases in Unassigned or Assigned state that still need resolution."
+          />
           <MetricCard
             label="Needs follow-up now"
             value={orderedCases.filter((c) => c.state !== "unassigned" && isFollowUpOverdue(c)).length}
+            tooltip="Assigned or in-progress cases where the severity-based response window has elapsed without an update."
           />
           <MetricCard
             label="Returned to QM"
             value={countByState(orderedCases, "returned_to_qm_for_verification")}
+            tooltip="Cases sent back by the owning team for QM verification before they can be closed."
           />
         </div>
       </section>
@@ -1074,11 +1080,45 @@ function MetaStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: number }) {
+function MetricCard({
+  label,
+  value,
+  tooltip,
+}: {
+  label: string;
+  value: number;
+  tooltip?: string;
+}) {
+  const [showTip, setShowTip] = useState(false);
   return (
     <div className="metric-card">
       <span>{label}</span>
       <strong>{value}</strong>
+      {tooltip ? (
+        <button
+          aria-label={`Info about ${label}`}
+          className="kpi-info-btn"
+          onBlur={() => setShowTip(false)}
+          onClick={() => setShowTip((v) => !v)}
+          type="button"
+        >
+          <svg
+            fill="none"
+            height="16"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            width="16"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" x2="12" y1="16" y2="12" />
+            <line x1="12" x2="12.01" y1="8" y2="8" />
+          </svg>
+          {showTip ? <span className="kpi-tooltip">{tooltip}</span> : null}
+        </button>
+      ) : null}
     </div>
   );
 }
