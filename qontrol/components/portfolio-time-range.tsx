@@ -1,9 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { lastNWeeksRangeUtc } from "@/lib/date-range";
+import {
+  lastNDaysRangeUtc,
+  lastSixMonthsToDateRangeUtc,
+  previousCalendarMonthRangeUtc,
+} from "@/lib/date-range";
 
 export type TimeRangeValue = { from: string; to: string } | null;
+
+type PresetId = "7d" | "1mo" | "6mo" | "custom";
 
 type Props = {
   value: TimeRangeValue;
@@ -11,12 +17,29 @@ type Props = {
   isFetching?: boolean;
 };
 
+function rangesEqual(
+  a: { from: string; to: string },
+  b: { from: string; to: string },
+): boolean {
+  return a.from === b.from && a.to === b.to;
+}
+
+function presetForRange(range: TimeRangeValue): PresetId {
+  if (range === null) return "custom";
+  if (rangesEqual(range, lastNDaysRangeUtc(7))) return "7d";
+  if (rangesEqual(range, previousCalendarMonthRangeUtc())) return "1mo";
+  if (rangesEqual(range, lastSixMonthsToDateRangeUtc())) return "6mo";
+  return "custom";
+}
+
 export function PortfolioTimeRange({
   value: rangeValue,
   onChange,
   isFetching,
 }: Props) {
-  const [customOpen, setCustomOpen] = useState(false);
+  /** True when user chose the Custom segment while range could still match a preset. */
+  const [explicitCustom, setExplicitCustom] = useState(false);
+
   const [customFrom, setCustomFrom] = useState(
     () => rangeValue?.from ?? "",
   );
@@ -28,24 +51,13 @@ export function PortfolioTimeRange({
     setCustomTo(rangeValue.to);
   }, [rangeValue]);
 
-  const onAllData = useCallback(() => {
-    setCustomOpen(false);
-    onChange(null);
-  }, [onChange]);
-
-  const toggleCustom = useCallback(() => {
-    setCustomOpen((o) => {
-      if (!o) {
-        const raw = rangeValue ?? lastNWeeksRangeUtc(8);
-        setCustomFrom(raw.from);
-        setCustomTo(raw.to);
-      }
-      return !o;
-    });
-  }, [rangeValue]);
+  const derivedPreset = presetForRange(rangeValue);
+  const activePreset: PresetId = explicitCustom ? "custom" : derivedPreset;
+  const showCustomDates =
+    explicitCustom || derivedPreset === "custom";
 
   useEffect(() => {
-    if (!customOpen) return;
+    if (!showCustomDates) return;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(customFrom)) return;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(customTo)) return;
     if (customFrom > customTo) return;
@@ -57,35 +69,66 @@ export function PortfolioTimeRange({
       return;
     }
     onChange({ from: customFrom, to: customTo });
-  }, [customOpen, customFrom, customTo, onChange, rangeValue]);
+  }, [showCustomDates, customFrom, customTo, onChange, rangeValue]);
 
-  const isAllData = rangeValue === null;
-  const customActive = customOpen || !isAllData;
+  const applyPreset = useCallback(
+    (id: Exclude<PresetId, "custom">) => {
+      setExplicitCustom(false);
+      if (id === "7d") onChange(lastNDaysRangeUtc(7));
+      else if (id === "1mo") onChange(previousCalendarMonthRangeUtc());
+      else onChange(lastSixMonthsToDateRangeUtc());
+    },
+    [onChange],
+  );
+
+  const onCustomSegment = useCallback(() => {
+    setExplicitCustom(true);
+    const raw = rangeValue ?? lastNDaysRangeUtc(7);
+    setCustomFrom(raw.from);
+    setCustomTo(raw.to);
+  }, [rangeValue]);
+
+  const segments: { id: PresetId; label: string }[] = [
+    { id: "7d", label: "Last 7 days" },
+    { id: "1mo", label: "Last month" },
+    { id: "6mo", label: "Last 6 months" },
+    { id: "custom", label: "Custom" },
+  ];
 
   return (
     <section
-      className="pf-time-range card-surface panel"
+      className="pf-time-range pf-time-range-card"
       aria-label="Report time range"
     >
-      <div className="pf-time-range-toolbar">
-        <span className="pf-time-range-label">Time range</span>
-        <div className="pf-time-actions" role="group" aria-label="Filter mode">
-          <button
-            type="button"
-            className={`pf-time-action ${isAllData ? "pf-time-action-active" : ""}`}
-            onClick={onAllData}
-            disabled={isFetching}
-          >
-            All data
-          </button>
-          <button
-            type="button"
-            className={`pf-time-action ${customActive ? "pf-time-action-active" : ""}`}
-            onClick={toggleCustom}
-            disabled={isFetching}
-          >
-            Custom
-          </button>
+      <div className="pf-time-range-inner">
+        <div
+          className="pf-time-segmented"
+          role="tablist"
+          aria-label="Time range presets"
+        >
+          {segments.map((seg) => {
+            const isActive = activePreset === seg.id;
+            return (
+              <button
+                key={seg.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                aria-current={isActive ? "true" : undefined}
+                className={`pf-time-segment ${isActive ? "pf-time-segment-active" : ""}`}
+                disabled={isFetching}
+                onClick={() => {
+                  if (seg.id === "custom") {
+                    onCustomSegment();
+                    return;
+                  }
+                  applyPreset(seg.id);
+                }}
+              >
+                {seg.label}
+              </button>
+            );
+          })}
         </div>
         {isFetching ? (
           <span className="pf-time-range-loading" aria-live="polite">
@@ -94,32 +137,28 @@ export function PortfolioTimeRange({
         ) : null}
       </div>
 
-      <p className="pf-time-range-hint">
-        {rangeValue == null
-          ? "No date filter."
-          : `${rangeValue.from} → ${rangeValue.to}`}
-      </p>
-
-      {customOpen ? (
-        <div className="pf-time-custom-panel">
-          <label className="pf-time-custom-label">
-            <span>From</span>
-            <input
-              type="date"
-              value={customFrom}
-              onChange={(e) => setCustomFrom(e.target.value)}
-              className="pf-time-date-input"
-            />
-          </label>
-          <label className="pf-time-custom-label">
-            <span>To</span>
-            <input
-              type="date"
-              value={customTo}
-              onChange={(e) => setCustomTo(e.target.value)}
-              className="pf-time-date-input"
-            />
-          </label>
+      {showCustomDates ? (
+        <div
+          className="pf-time-custom-row"
+          aria-label="Custom date range"
+        >
+          <input
+            type="date"
+            value={customFrom}
+            onChange={(e) => setCustomFrom(e.target.value)}
+            className="pf-time-date-input"
+            aria-label="Start date"
+          />
+          <span className="pf-time-custom-arrow" aria-hidden>
+            →
+          </span>
+          <input
+            type="date"
+            value={customTo}
+            onChange={(e) => setCustomTo(e.target.value)}
+            className="pf-time-date-input"
+            aria-label="End date"
+          />
         </div>
       ) : null}
     </section>

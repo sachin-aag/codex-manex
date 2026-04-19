@@ -1,12 +1,12 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
-import { buildBriefingContext } from "@/lib/quality-briefing/context";
-import { parseBriefingPayload } from "@/lib/quality-briefing/briefing-types";
+import { buildRdBriefingContext } from "@/lib/rd-briefing/context";
+import { parseRdBriefingPayload } from "@/lib/rd-briefing/briefing-types";
 import {
-  BRIEFING_SYSTEM_PROMPT,
   DEFAULT_BRIEFING_MODEL,
-} from "@/lib/quality-briefing/prompt";
+  RD_BRIEFING_SYSTEM_PROMPT,
+} from "@/lib/rd-briefing/prompt";
 
 export const runtime = "nodejs";
 
@@ -33,11 +33,11 @@ export async function POST() {
     );
   }
 
-  let context: Awaited<ReturnType<typeof buildBriefingContext>>;
+  let context: Awaited<ReturnType<typeof buildRdBriefingContext>>;
   try {
-    context = await buildBriefingContext();
+    context = await buildRdBriefingContext();
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Failed to load quality data";
+    const msg = e instanceof Error ? e.message : "Failed to load R&D data";
     return NextResponse.json(
       { error: "PostgREST data fetch failed", details: msg },
       { status: 503 },
@@ -48,7 +48,7 @@ export async function POST() {
     {
       context,
       instructions:
-        "Generate the briefing JSON. The context includes priority_defects, defects_without_actions, stale_open_actions (no due dates in DB), recurring patterns, inspection_failures, rework_by_week, pareto_top_codes, data_patterns_hint, and stats.",
+        "Generate the R&D briefing JSON. The context includes rd_cases, open/stale cases, recent_design_decisions, claims_sample, defects_sample, recurring_parts_top, design_gap_field_claim_ids, long_lag_field_claim_ids, stats, and data_patterns_hint.",
     },
     null,
     2,
@@ -67,7 +67,7 @@ export async function POST() {
       max_completion_tokens: 8192,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: BRIEFING_SYSTEM_PROMPT },
+        { role: "system", content: RD_BRIEFING_SYSTEM_PROMPT },
         { role: "user", content: userPayload },
       ],
     });
@@ -83,7 +83,7 @@ export async function POST() {
 
     let briefing;
     try {
-      briefing = parseBriefingPayload(raw);
+      briefing = parseRdBriefingPayload(raw);
     } catch (parseErr) {
       const msg =
         parseErr instanceof Error ? parseErr.message : "JSON parse failed";

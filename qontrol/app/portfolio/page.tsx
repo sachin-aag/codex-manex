@@ -12,8 +12,29 @@ import {
   type TimeRangeValue,
 } from "@/components/portfolio-time-range";
 import { QualityBriefingPanel } from "@/components/quality-briefing-panel";
-import { lastNWeeksRangeUtc } from "@/lib/date-range";
+import { lastNDaysRangeUtc } from "@/lib/date-range";
 import type { DashboardKpis } from "@/lib/db/kpis";
+
+type KpiTone = "good" | "warn" | "bad" | "neutral";
+
+function toneDefectOrReworkRate(rate: number): Exclude<KpiTone, "neutral"> {
+  if (rate > 0.2) return "bad";
+  if (rate < 0.1) return "good";
+  return "warn";
+}
+
+function toneOpenActions(n: number): Exclude<KpiTone, "neutral"> {
+  if (n > 30) return "bad";
+  if (n <= 15) return "good";
+  return "warn";
+}
+
+function toneAvgDays(d: number | null): KpiTone {
+  if (d == null) return "neutral";
+  if (d < 2) return "good";
+  if (d > 5) return "bad";
+  return "warn";
+}
 import type {
   BatchRankingRow,
   ClaimLagRow,
@@ -44,7 +65,7 @@ export default function PortfolioPage() {
   const [dashKpis, setDashKpis] = useState<DashboardKpis | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRangeValue>(() =>
-    lastNWeeksRangeUtc(8),
+    lastNDaysRangeUtc(7),
   );
   const [isFetching, setIsFetching] = useState(true);
 
@@ -140,12 +161,10 @@ export default function PortfolioPage() {
         <div>
           <p className="eyebrow">QM Portfolio</p>
           <h1>Quality Engineering — management view</h1>
-          <p className="hero-copy">
-            Defects and field claims in one place: trends, Pareto analysis,
-            detection vs. origin, cost of poor quality, and supplier batch signals.
-          </p>
         </div>
       </section>
+
+      <QualityBriefingPanel />
 
       <PortfolioTimeRange
         value={timeRange}
@@ -154,37 +173,45 @@ export default function PortfolioPage() {
       />
 
       <section className="kpi-bar" aria-label="Quality KPIs">
-        <div className="kpi-card">
+        <div
+          className={`kpi-card kpi-card--tone-${dashKpis ? toneDefectOrReworkRate(dashKpis.defectRate) : "neutral"}`}
+        >
           <span className="kpi-card-label">Defect rate</span>
           <span className="kpi-card-value">
             {dashKpis ? dashKpis.defectRateLabel : "—"}
           </span>
           <p className="kpi-card-hint">Defects per products built</p>
         </div>
-        <div className="kpi-card">
+        <div
+          className={`kpi-card kpi-card--tone-${dashKpis ? toneOpenActions(dashKpis.openActions) : "neutral"}`}
+        >
           <span className="kpi-card-label">Open actions</span>
           <span className="kpi-card-value">
             {dashKpis ? String(dashKpis.openActions) : "—"}
           </span>
           <p className="kpi-card-hint">Pending corrective actions</p>
         </div>
-        <div className="kpi-card">
+        <div
+          className={`kpi-card kpi-card--tone-${dashKpis ? toneDefectOrReworkRate(dashKpis.reworkRate) : "neutral"}`}
+        >
           <span className="kpi-card-label">Rework rate</span>
           <span className="kpi-card-value">
             {dashKpis ? dashKpis.reworkRateLabel : "—"}
           </span>
           <p className="kpi-card-hint">Rework per products built</p>
         </div>
-        <div className="kpi-card">
-          <span className="kpi-card-label">Avg. time to close / first rework</span>
+        <div
+          className={`kpi-card kpi-card--tone-${dashKpis ? toneAvgDays(dashKpis.avgDaysToClose) : "neutral"}`}
+        >
+          <span className="kpi-card-label">Avg. time to close</span>
           <span className="kpi-card-value">
-            {dashKpis ? dashKpis.avgDaysToCloseLabel : "—"}
+            {dashKpis?.avgDaysToClose != null
+              ? `${dashKpis.avgDaysToClose.toFixed(1)} days`
+              : "—"}
           </span>
           <p className="kpi-card-hint">Average days to first rework</p>
         </div>
       </section>
-
-      <QualityBriefingPanel />
 
       <section className="pf-section">
         <div className="pf-dashboard-grid">
