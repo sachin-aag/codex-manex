@@ -25,9 +25,9 @@ type BoardFilters = {
 };
 
 type RouteDialogState = {
-  createCombinedTicket: boolean;
   sendEmail: boolean;
   relatedCaseIds: string[];
+  selectedCaseIds: string[];
 };
 
 type AssignRouteResponse = {
@@ -280,17 +280,19 @@ export function QontrolApp() {
 
   function handleApproveAndRoute() {
     if (!selectedCase) return;
+    const relatedCaseIds = routeableSimilarCases.map((caseItem) => caseItem.id);
     setRouteDialog({
-      createCombinedTicket: relatedRouteCount > 0,
       sendEmail: true,
-      relatedCaseIds: routeableSimilarCases.map((caseItem) => caseItem.id),
+      relatedCaseIds,
+      selectedCaseIds: [selectedCase.id, ...relatedCaseIds],
     });
   }
 
   async function confirmApproveAndRoute() {
     if (!selectedCase || !routeDialog) return;
+    const createCombinedTicket = routeDialog.selectedCaseIds.length > 1;
+    const linkedCaseIds = routeDialog.selectedCaseIds.filter((caseId) => caseId !== selectedCase.id);
 
-    const mailWindow = routeDialog.sendEmail ? window.open("", "_blank") : null;
     setActionError(null);
     setIsMutating(true);
     try {
@@ -300,8 +302,8 @@ export function QontrolApp() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          createCombinedTicket: routeDialog.createCombinedTicket,
-          linkedCaseIds: routeDialog.createCombinedTicket ? routeDialog.relatedCaseIds : [],
+          createCombinedTicket,
+          linkedCaseIds: createCombinedTicket ? linkedCaseIds : [],
           openEmailDraft: routeDialog.sendEmail,
         }),
       });
@@ -323,7 +325,7 @@ export function QontrolApp() {
       setActionError(payload.warning ?? null);
 
       if (routeDialog.sendEmail && payload.emailDraft) {
-        openMailDraft(payload.emailDraft, mailWindow);
+        openMailDraft(payload.emailDraft);
         updateCase(selectedCase.id, (current) => ({
           ...current,
           emailDraft: payload.emailDraft ?? current.emailDraft,
@@ -331,7 +333,7 @@ export function QontrolApp() {
             {
               id: crypto.randomUUID(),
               at: new Date().toISOString(),
-              title: routeDialog.createCombinedTicket
+              title: createCombinedTicket
                 ? "Shared handoff email drafted"
                 : "Assignment email drafted",
               description: `Prepared email draft for ${payload.emailDraft?.to.join(", ") ?? current.emailDraft.to.join(", ")}.`,
@@ -340,21 +342,52 @@ export function QontrolApp() {
             ...current.timeline,
           ],
         }));
-      } else if (mailWindow) {
-        mailWindow.close();
       }
 
       setRouteDialog(null);
     } catch (error) {
-      if (mailWindow) {
-        mailWindow.close();
-      }
       const message =
         error instanceof Error ? error.message : "Failed to update case.";
       setActionError(message);
     } finally {
       setIsMutating(false);
     }
+  }
+
+  function handleCombinedSelectionChange(checked: boolean) {
+    if (!selectedCase) return;
+    setRouteDialog((current) =>
+      current
+        ? {
+            ...current,
+            selectedCaseIds: checked
+              ? [selectedCase.id, ...current.relatedCaseIds]
+              : [selectedCase.id],
+          }
+        : current,
+    );
+  }
+
+  function handleRouteChipToggle(caseId: string) {
+    if (!selectedCase || caseId === selectedCase.id) return;
+
+    setRouteDialog((current) => {
+      if (!current) return current;
+      const selected = new Set(current.selectedCaseIds);
+      if (selected.has(caseId)) {
+        selected.delete(caseId);
+      } else {
+        selected.add(caseId);
+      }
+
+      return {
+        ...current,
+        selectedCaseIds: [
+          selectedCase.id,
+          ...current.relatedCaseIds.filter((relatedCaseId) => selected.has(relatedCaseId)),
+        ],
+      };
+    });
   }
 
   function handleSendEmail() {
@@ -1259,21 +1292,18 @@ export function QontrolApp() {
               </div>
 
               <div className="routing-modal-body">
+                {isMutating ? (
+                  <div className="routing-modal-note">
+                    Creating the downstream GitHub ticket and preparing the handoff. This can take a
+                    few seconds while Qontrol waits for GitHub to respond.
+                  </div>
+                ) : null}
                 {routeDialog.relatedCaseIds.length > 0 ? (
                   <>
                     <label className="routing-choice-card">
                       <input
-                        checked={routeDialog.createCombinedTicket}
-                        onChange={() =>
-                          setRouteDialog((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  createCombinedTicket: !current.createCombinedTicket,
-                                }
-                              : current,
-                          )
-                        }
+                        checked={routeDialog.selectedCaseIds.length > 1}
+                        onChange={(event) => handleCombinedSelectionChange(event.target.checked)}
                         type="checkbox"
                       />
                       <div>
@@ -1282,19 +1312,33 @@ export function QontrolApp() {
                           {routeDialog.relatedCaseIds.length === 1 ? "" : "s"}. Create one shared GitHub ticket?
                         </strong>
                         <p>
-                          {routeDialog.createCombinedTicket
-                            ? `Qontrol will link ${routeDialog.relatedCaseIds.length + 1} cases to one GitHub issue for ${selectedCase.ownerTeam}.`
+                          {routeDialog.selectedCaseIds.length > 1
+                            ? `Qontrol will link ${routeDialog.selectedCaseIds.length} cases to one GitHub issue for ${selectedCase.ownerTeam}.`
                             : `Qontrol will route only ${selectedCase.id} to GitHub.`}
                         </p>
                       </div>
                     </label>
                     <div className="routing-chip-row">
-                      <span className="routing-chip routing-chip-primary">{selectedCase.id}</span>
-                      {routeDialog.relatedCaseIds.map((caseId) => (
-                        <span className="routing-chip" key={caseId}>
-                          {caseId}
-                        </span>
-                      ))}
+                      {[selectedCase.id, ...routeDialog.relatedCaseIds].map((caseId) => {
+                        const isSelected = routeDialog.selectedCaseIds.includes(caseId);
+                        const isPrimary = caseId === selectedCase.id;
+
+                        return (
+                          <button
+                            aria-pressed={isSelected}
+                            className={`routing-chip ${isSelected ? "selected" : ""} ${isPrimary ? "routing-chip-primary" : ""}`}
+                            disabled={isMutating}
+                            key={caseId}
+                            onClick={() => handleRouteChipToggle(caseId)}
+                            type="button"
+                          >
+                            <span className={`routing-chip-check ${isSelected ? "visible" : ""}`}>
+                              ✓
+                            </span>
+                            <span>{caseId}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </>
                 ) : (
@@ -1344,7 +1388,11 @@ export function QontrolApp() {
                   onClick={confirmApproveAndRoute}
                   type="button"
                 >
-                  {isMutating ? "Routing..." : "Route ticket"}
+                  {isMutating
+                    ? routeDialog.sendEmail
+                      ? "Routing and preparing email..."
+                      : "Routing..."
+                    : "Route ticket"}
                 </button>
               </div>
             </div>
@@ -1965,19 +2013,14 @@ function getRouteableSimilarCases(selectedCase: QontrolCase, allCases: QontrolCa
   });
 }
 
-function openMailDraft(draft: EmailDraft, targetWindow?: Window | null) {
+function openMailDraft(draft: EmailDraft) {
   const mailto =
     `mailto:${draft.to.join(",")}` +
     `?cc=${encodeURIComponent(draft.cc.join(","))}` +
     `&subject=${encodeURIComponent(draft.subject)}` +
     `&body=${encodeURIComponent(draft.body)}`;
 
-  if (targetWindow) {
-    targetWindow.location.href = mailto;
-    return;
-  }
-
-  window.open(mailto, "_blank");
+  window.location.href = mailto;
 }
 
 function buildAiGeneratedLearning(

@@ -1969,10 +1969,23 @@ async function insertRework(payload: {
   throw new Error("Unable to allocate unique rework id after retries.");
 }
 
-export async function assignCase(caseId: string) {
-  const current = await getCaseById(caseId);
+function buildAssignedCaseSnapshot(current: QontrolCase) {
   const assignee = ownerAssigneeByStory[current.story];
   const ownerTeam = ownerTeamByStory[current.story];
+
+  return {
+    ...current,
+    state: "assigned" as CaseState,
+    assignee,
+    ownerTeam,
+  };
+}
+
+async function assignLoadedCase(
+  current: QontrolCase,
+  options: { reload?: boolean } = {},
+) {
+  const nextCase = buildAssignedCaseSnapshot(current);
 
   await insertProductAction({
     product_id: current.productId,
@@ -1981,32 +1994,62 @@ export async function assignCase(caseId: string) {
     status: "assigned",
     user_id: DEFAULT_USER,
     section_id: null,
-    comments: `Qontrol assigned ${caseId} to ${ownerTeam}.`,
-    defect_id: caseId.startsWith("DEF-") ? caseId : null,
+    comments: `Qontrol assigned ${current.id} to ${nextCase.ownerTeam}.`,
+    defect_id: current.id.startsWith("DEF-") ? current.id : null,
   });
 
   await upsertCaseState({
-    caseId,
+    caseId: current.id,
     productId: current.productId,
-    defectId: caseId.startsWith("DEF-") ? caseId : null,
+    defectId: current.id.startsWith("DEF-") ? current.id : null,
     state: "assigned",
-    assignee,
-    ownerTeam,
+    assignee: nextCase.assignee,
+    ownerTeam: nextCase.ownerTeam,
     qmOwner: current.qmOwner,
-    note: `Assigned to ${ownerTeam}.`,
+    note: `Assigned to ${nextCase.ownerTeam}.`,
     actor: "qm",
     externalTicket: current.external ?? null,
   });
 
-  return getCaseById(caseId);
+  if (options.reload === false) {
+    return nextCase;
+  }
+
+  return getCaseById(current.id);
 }
 
-async function assignCases(caseIds: string[]) {
-  const updatedCases: QontrolCase[] = [];
-  for (const caseId of [...new Set(caseIds)]) {
-    updatedCases.push(await assignCase(caseId));
+export async function assignCase(caseId: string) {
+  const current = await getCaseById(caseId);
+  return assignLoadedCase(current);
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T, index: number) => Promise<R>,
+) {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (true) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      if (currentIndex >= items.length) return;
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex);
+    }
   }
-  return updatedCases;
+
+  const workerCount = Math.max(1, Math.min(limit, items.length));
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results;
+}
+
+async function assignLoadedCases(cases: QontrolCase[]) {
+  const uniqueCases = [...new Map(cases.map((caseItem) => [caseItem.id, caseItem])).values()];
+  return mapWithConcurrency(uniqueCases, 6, (caseItem) =>
+    assignLoadedCase(caseItem, { reload: false }),
+  );
 }
 
 function canShareGitHubTicket(params: {
@@ -2028,13 +2071,12 @@ function canShareGitHubTicket(params: {
 }
 
 async function resolveCombinedRoutingTargets(params: {
-  caseId: string;
+  leadCase: QontrolCase;
+  allCases: QontrolCase[];
   requestedCaseIds?: string[];
 }) {
-  const leadCase = await getCaseById(params.caseId);
-  const allCases = await listCases();
-  const candidateIds = allCases
-    .filter((candidate) => canShareGitHubTicket({ leadCase, candidate }))
+  const candidateIds = params.allCases
+    .filter((candidate) => canShareGitHubTicket({ leadCase: params.leadCase, candidate }))
     .map((candidate) => candidate.id);
   const requestedIds = [...new Set(params.requestedCaseIds ?? [])];
   const allowedRequestedIds =
@@ -2047,8 +2089,8 @@ async function resolveCombinedRoutingTargets(params: {
       : [];
 
   return {
-    leadCase,
-    caseIds: [leadCase.id, ...allowedRequestedIds],
+    leadCase: params.leadCase,
+    caseIds: [params.leadCase.id, ...allowedRequestedIds],
     skippedCaseIds,
   };
 }
@@ -2776,25 +2818,41 @@ async function persistExternalSync(params: {
   actor?: string;
   nextState?: CaseState;
   caseAssignee?: string | null;
+  currentCase?: QontrolCase;
+  reload?: boolean;
 }) {
-  const current = await getCaseById(params.caseId);
+  const current = params.currentCase ?? (await getCaseById(params.caseId));
+  const nextState = params.nextState ?? current.state;
+  const nextAssignee =
+    params.caseAssignee !== undefined
+      ? params.caseAssignee
+      : params.externalTicket.assignee && params.externalTicket.assignee !== "Unassigned"
+      ? params.externalTicket.assignee
+      : current.assignee;
+  const nextAssigneeSnapshot = nextAssignee ?? "Unassigned";
+
   await upsertCaseState({
     caseId: params.caseId,
     productId: current.productId,
     defectId: params.caseId.startsWith("DEF-") ? params.caseId : null,
-    state: params.nextState ?? current.state,
-    assignee:
-      params.caseAssignee !== undefined
-        ? params.caseAssignee
-        : params.externalTicket.assignee && params.externalTicket.assignee !== "Unassigned"
-        ? params.externalTicket.assignee
-        : current.assignee,
+    state: nextState,
+    assignee: nextAssignee,
     ownerTeam: current.ownerTeam,
     qmOwner: current.qmOwner,
     note: params.note,
     actor: params.actor ?? "system",
     externalTicket: params.externalTicket,
   });
+
+  if (params.reload === false) {
+    return {
+      ...current,
+      state: nextState,
+      assignee: nextAssigneeSnapshot,
+      external: params.externalTicket,
+    };
+  }
+
   return getCaseById(params.caseId);
 }
 
@@ -2856,22 +2914,67 @@ async function syncGitHubIssueAcrossCases(params: {
 }
 
 async function loadCasesByIds(caseIds: string[]) {
-  const loadedCases: QontrolCase[] = [];
-  for (const caseId of [...new Set(caseIds)]) {
-    loadedCases.push(await getCaseById(caseId));
-  }
-  return loadedCases;
+  const allCases = await listCases();
+  const caseById = new Map(allCases.map((caseItem) => [caseItem.id, caseItem]));
+
+  return [...new Set(caseIds)].map((caseId) => {
+    const caseItem = caseById.get(caseId);
+    if (!caseItem) {
+      throw new Error(`Case not found: ${caseId}`);
+    }
+    return caseItem;
+  });
 }
 
-async function connectCasesToGitHub(caseIds: string[]) {
-  let requestedCaseIds = [...new Set(caseIds)];
-  let loadedCases = await loadCasesByIds(requestedCaseIds);
+async function syncLoadedCasesToGitHubIssue(params: {
+  cases: QontrolCase[];
+  issue: Awaited<ReturnType<typeof getGitHubIssue>>;
+  repo: string;
+  note: string;
+  syncNote: string;
+  actor?: string;
+  projectItemId?: number;
+  resolveStatus?: (current: QontrolCase) => string;
+  resolveNextState?: (current: QontrolCase, external: TeamTicket) => CaseState;
+  resolveCaseAssignee?: (current: QontrolCase, external: TeamTicket) => string | null | undefined;
+}) {
+  const uniqueCases = [...new Map(params.cases.map((caseItem) => [caseItem.id, caseItem])).values()];
+
+  return mapWithConcurrency(uniqueCases, 6, async (current) => {
+    const external = buildExternalTicket({
+      caseItem: current,
+      issue: params.issue,
+      projectItemId: params.projectItemId,
+      repo: params.repo,
+      status:
+        params.resolveStatus?.(current) ??
+        resolveGitHubIssueStatus(current.external?.status, params.issue.state),
+      syncNote: params.syncNote,
+    });
+
+    return persistExternalSync({
+      caseId: current.id,
+      currentCase: current,
+      externalTicket: external,
+      note: params.note,
+      actor: params.actor,
+      nextState:
+        params.resolveNextState?.(current, external) ??
+        mapExternalStatusToCaseState(current.state, external.status, params.issue.state),
+      caseAssignee: params.resolveCaseAssignee?.(current, external),
+      reload: false,
+    });
+  });
+}
+
+async function connectLoadedCasesToGitHub(initialCases: QontrolCase[]) {
+  let loadedCases = [...new Map(initialCases.map((caseItem) => [caseItem.id, caseItem])).values()];
   const leadCase = loadedCases[0];
   if (!leadCase) {
     throw new Error("No cases supplied for GitHub routing.");
   }
 
-  if (requestedCaseIds.length === 1 && leadCase.external?.issueNumber != null) {
+  if (loadedCases.length === 1 && leadCase.external?.issueNumber != null) {
     const existingLinkedIssue = await getGitHubIssue(leadCase.external.issueNumber);
     const linkedCaseIds = await findCaseIdsByGitHubIssue({
       issueNumber: existingLinkedIssue.number,
@@ -2880,8 +2983,7 @@ async function connectCasesToGitHub(caseIds: string[]) {
     });
 
     if (linkedCaseIds.length > 1) {
-      requestedCaseIds = [...new Set(linkedCaseIds)];
-      loadedCases = await loadCasesByIds(requestedCaseIds);
+      loadedCases = await loadCasesByIds(linkedCaseIds);
     }
   }
 
@@ -2923,8 +3025,8 @@ async function connectCasesToGitHub(caseIds: string[]) {
         : await addIssueToGitHubProject(issue.number)
       : null;
 
-  await syncGitHubIssueAcrossCases({
-    caseIds: requestedCaseIds,
+  return syncLoadedCasesToGitHubIssue({
+    cases: loadedCases,
     issue,
     repo: canonicalCase.external?.repo ?? getGitHubConfig().repoSlug,
     note:
@@ -2940,8 +3042,11 @@ async function connectCasesToGitHub(caseIds: string[]) {
     resolveStatus: () => (issue.state === "closed" ? "Ready for QM verification" : "Open"),
     resolveNextState: (current) => (current.state === "unassigned" ? "assigned" : current.state),
   });
+}
 
-  return loadCasesByIds(requestedCaseIds);
+async function connectCasesToGitHub(caseIds: string[]) {
+  const loadedCases = await loadCasesByIds(caseIds);
+  return connectLoadedCasesToGitHub(loadedCases);
 }
 
 export async function connectCaseToGitHub(caseId: string) {
@@ -2956,16 +3061,30 @@ export async function routeCase(params: {
   openEmailDraft?: boolean;
 }) {
   const warningParts: string[] = [];
-  let targetCaseIds = [params.caseId];
+  const allCases = await listCases();
+  const caseById = new Map(allCases.map((caseItem) => [caseItem.id, caseItem]));
+  const leadCase = caseById.get(params.caseId);
+  if (!leadCase) {
+    throw new Error(`Case not found: ${params.caseId}`);
+  }
+
+  let targetCases = [leadCase];
 
   if (params.createCombinedTicket) {
     const resolvedTargets = await resolveCombinedRoutingTargets({
-      caseId: params.caseId,
+      leadCase,
+      allCases,
       requestedCaseIds: params.linkedCaseIds,
     });
-    targetCaseIds = resolvedTargets.caseIds;
+    targetCases = resolvedTargets.caseIds.map((caseId) => {
+      const caseItem = caseById.get(caseId);
+      if (!caseItem) {
+        throw new Error(`Case not found: ${caseId}`);
+      }
+      return caseItem;
+    });
 
-    if (targetCaseIds.length === 1) {
+    if (targetCases.length === 1) {
       warningParts.push(
         "No additional eligible related tickets were available, so Qontrol routed this as a single GitHub issue.",
       );
@@ -2978,10 +3097,10 @@ export async function routeCase(params: {
     }
   }
 
-  const assignedCases = await assignCases(targetCaseIds);
+  const assignedCases = await assignLoadedCases(targetCases);
 
   try {
-    const syncedCases = await connectCasesToGitHub(targetCaseIds);
+    const syncedCases = await connectLoadedCasesToGitHub(assignedCases);
     const selectedCase = syncedCases.find((caseItem) => caseItem.id === params.caseId) ?? syncedCases[0];
     const emailDraft =
       params.openEmailDraft && selectedCase?.external?.url
@@ -3000,7 +3119,7 @@ export async function routeCase(params: {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     warningParts.push(
-      `Case${targetCaseIds.length > 1 ? "s" : ""} routed, but GitHub issue sync failed: ${message}`,
+      `Case${targetCases.length > 1 ? "s" : ""} routed, but GitHub issue sync failed: ${message}`,
     );
 
     return {

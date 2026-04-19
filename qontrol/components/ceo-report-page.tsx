@@ -9,6 +9,26 @@ type ApiErrorPayload = {
   details?: string;
 };
 
+function DownloadIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3v11" />
+      <path d="m7 11 5 5 5-5" />
+      <path d="M5 21h14" />
+    </svg>
+  );
+}
+
 function formatTimestamp(value: string) {
   return new Date(value).toLocaleString(undefined, {
     dateStyle: "medium",
@@ -161,6 +181,7 @@ export function CeoReportPage() {
             target="_blank"
             rel="noreferrer"
           >
+            <DownloadIcon />
             Download PowerPoint
           </a>
           <button
@@ -233,6 +254,22 @@ export function CeoReportPage() {
       </section>
 
       <section className="pf-section">
+        <div className="ceo-report-section-head">
+          <div>
+            <p className="eyebrow">Deck Preview</p>
+            <h3>Weekly executive slides</h3>
+          </div>
+          <a
+            className="secondary-button ceo-report-link-button ceo-report-link-button-secondary"
+            href={report.downloadUrl}
+            download
+            target="_blank"
+            rel="noreferrer"
+          >
+            <DownloadIcon />
+            Download report
+          </a>
+        </div>
         <article className="card-surface panel ceo-report-carousel">
           <div className="ceo-report-slide-head">
             <div>
