@@ -39,6 +39,20 @@ const qmNav: NavItem[] = [
     ),
   },
   {
+    href: "/ceo-report",
+    label: "CEO Report",
+    enabled: true,
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="14" rx="2" />
+        <path d="M7 20h10" />
+        <path d="M12 18v2" />
+        <path d="M8 9h8" />
+        <path d="M8 13h5" />
+      </svg>
+    ),
+  },
+  {
     href: "/portfolio/learnings",
     label: "Portfolio Insights",
     enabled: true,
@@ -47,17 +61,6 @@ const qmNav: NavItem[] = [
         <circle cx="12" cy="12" r="10" />
         <line x1="12" y1="8" x2="12" y2="12" />
         <line x1="12" y1="16" x2="12.01" y2="16" />
-      </svg>
-    ),
-  },
-  {
-    href: "/portfolio/initiatives",
-    label: "Initiatives",
-    enabled: true,
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="9 11 12 14 22 4" />
-        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
       </svg>
     ),
   },
@@ -119,11 +122,6 @@ const deptNav: NavItem[] = [
   },
 ];
 
-function deptFromPath(pathname: string): { label: string; accent: string } {
-  if (pathname.startsWith("/rd")) return { label: "R&D · Engineering view", accent: "rd" };
-  return { label: "QE · Management view", accent: "qm" };
-}
-
 type SidebarProps = {
   collapsed: boolean;
   onToggle: () => void;
@@ -140,8 +138,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     }
     return pathname === href || pathname.startsWith(`${href}/`);
   }
-
-  const footer = deptFromPath(pathname);
 
   return (
     <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
@@ -227,9 +223,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         )}
       </nav>
 
-      <div className="sidebar-footer">
-        <div className={`sidebar-env-badge env-${footer.accent}`}>{footer.label}</div>
-      </div>
     </aside>
   );
 }

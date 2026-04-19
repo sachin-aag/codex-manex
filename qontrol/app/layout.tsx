@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import "@xyflow/react/dist/style.css";
 
 import { AppShell } from "@/components/app-shell";
 import "./globals.css";

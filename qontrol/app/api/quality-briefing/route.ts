@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
 import { buildBriefingContext } from "@/lib/quality-briefing/context";
+import { parseBriefingPayload } from "@/lib/quality-briefing/briefing-types";
 import {
   BRIEFING_SYSTEM_PROMPT,
   DEFAULT_BRIEFING_MODEL,
@@ -47,7 +48,7 @@ export async function POST() {
     {
       context,
       instructions:
-        "Generate the briefing. The context includes priority_defects, defects_without_actions, stale_open_actions (no due dates in DB), recurring patterns, inspection_failures, rework_by_week, pareto_top_codes, data_patterns_hint, and stats.",
+        "Generate the briefing JSON. The context includes priority_defects, defects_without_actions, stale_open_actions (no due dates in DB), recurring patterns, inspection_failures, rework_by_week, pareto_top_codes, data_patterns_hint, and stats.",
     },
     null,
     2,
@@ -64,23 +65,41 @@ export async function POST() {
     const response = await client.chat.completions.create({
       model,
       max_completion_tokens: 8192,
+      response_format: { type: "json_object" },
       messages: [
         { role: "system", content: BRIEFING_SYSTEM_PROMPT },
         { role: "user", content: userPayload },
       ],
     });
 
-    const markdown = response.choices[0]?.message?.content?.trim() ?? "";
+    const raw = response.choices[0]?.message?.content?.trim() ?? "";
 
-    if (!markdown) {
+    if (!raw) {
       return NextResponse.json(
         { error: "Empty model response", generatedAt },
         { status: 502 },
       );
     }
 
+    let briefing;
+    try {
+      briefing = parseBriefingPayload(raw);
+    } catch (parseErr) {
+      const msg =
+        parseErr instanceof Error ? parseErr.message : "JSON parse failed";
+      return NextResponse.json(
+        {
+          error: "Invalid briefing JSON from model",
+          details: msg,
+          raw,
+          generatedAt,
+        },
+        { status: 502 },
+      );
+    }
+
     return NextResponse.json({
-      markdown,
+      briefing,
       generatedAt,
       model,
     });

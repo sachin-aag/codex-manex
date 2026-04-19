@@ -1,0 +1,65 @@
+{
+  "reportId": "ceo-weekly-2026-04-13",
+  "generatedAt": "2026-04-19T06:55:06.737Z",
+  "nextGenerationAt": "2026-04-26T06:55:06.737Z",
+  "title": "Qontrol Weekly CEO Report",
+  "subtitle": "Executive quality snapshot for Apr 13 - Apr 19",
+  "downloadUrl": "/reports/ceo-weekly/ceo-weekly-2026-04-13/report.pptx",
+  "slides": [
+    {
+      "title": "Executive overview",
+      "imageUrl": "/reports/ceo-weekly/ceo-weekly-2026-04-13/slide-01.png"
+    },
+    {
+      "title": "High-severity tickets",
+      "imageUrl": "/reports/ceo-weekly/ceo-weekly-2026-04-13/slide-02.png"
+    },
+    {
+      "title": "Open-ticket portfolio",
+      "imageUrl": "/reports/ceo-weekly/ceo-weekly-2026-04-13/slide-03.png"
+    },
+    {
+      "title": "Big-picture updates",
+      "imageUrl": "/reports/ceo-weekly/ceo-weekly-2026-04-13/slide-04.png"
+    }
+  ],
+  "summary": {
+    "openTickets": 160,
+    "highSeverityOpen": 55,
+    "overdueOpen": 133,
+    "reportWeekLabel": "Apr 13 - Apr 19",
+    "comparisonLastWeekLabel": "Apr 12",
+    "comparisonThisWeekLabel": "Apr 19"
+  },
+  "laggingTeam": {
+    "isFlagged": true,
+    "team": "MO",
+    "headline": "MO is carrying the heaviest backlog.",
+    "reason": "MO currently owns 97 open tickets, including 20 high-severity items and 74 overdue follow-ups. That queue scores 123 points above the peer median on the executive backlog index.",
+    "score": 575
+  },
+  "highSeverityTicketCount": 6,
+  "narrativeCards": [
+    {
+      "title": "December spike has eased",
+      "body": "Weekly incidents peaked around Dec 1 and have since settled into a lower run rate. This gives leadership a cleaner baseline heading into the next supplier and production review. Rework activity in the briefing context is now concentrated in 2026-03-16, 2026-03-23, 2026-03-30, 2026-04-13, which supports a narrower improvement push.",
+      "metricLabel": "Peak to current",
+      "metricValue": "-61%",
+      "tone": "positive"
+    },
+    {
+      "title": "Supplier-change signal is improving",
+      "body": "Using the current portfolio plus seeded history, supplier-linked issues are trending down versus the January baseline after the component-source change implemented roughly three months ago.",
+      "metricLabel": "Supplier-linked watchlist",
+      "metricValue": "-25%",
+      "tone": "positive"
+    },
+    {
+      "title": "Backlog concentration needs attention",
+      "body": "MO currently owns 97 open tickets, including 20 high-severity items and 74 overdue follow-ups. That queue scores 123 points above the peer median on the executive backlog index.",
+      "metricLabel": "High severity open",
+      "metricValue": "55",
+      "tone": "watch"
+    }
+  ]
+}

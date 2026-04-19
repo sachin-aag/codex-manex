@@ -10,7 +10,6 @@ import {
   computeClaimScatter,
   computeCostBreakdown,
   computeDefectTrend,
-  computeKpis,
   computePareto,
   computeSectionHeatmap,
   computeSeverityByOccurrence,
@@ -21,7 +20,6 @@ import {
   fetchBomParts,
   fetchClaims,
   fetchDefects,
-  fetchInitiatives,
   fetchProductIds,
   fetchQualitySummary,
   fetchRework,
@@ -47,21 +45,15 @@ export async function GET(request: Request) {
     }
     const range: UtcRange | null = parsed.range;
 
-    const [defects, claims, initiatives, summary, bom, rework, productIds] =
+    const [defects, claims, summary, bom, rework, productIds] =
       await Promise.all([
         fetchDefects(2000, range),
         fetchClaims(50_000, range),
-        fetchInitiatives(range),
         fetchQualitySummary(range),
         safe(() => fetchBomParts(8000), [] as BomPartRow[]),
         safe(() => fetchRework(10_000, range), [] as ReworkRow[]),
         safe(() => fetchProductIds(), [] as string[]),
       ]);
-
-    const kpis = computeKpis(defects, claims, initiatives, summary, {
-      totalProductCount:
-        productIds.length > 0 ? productIds.length : undefined,
-    });
     const severityTotals = computeSeverityTotals(defects);
     const pareto = computePareto(defects);
     const severityTimeline = computeSeverityTimeline(defects);
@@ -75,25 +67,13 @@ export async function GET(request: Request) {
     const claimScatter = computeClaimScatter(claims);
     const bomBatchRanking = computeBomBatchRanking(bom, defects);
 
-    const backlog = {
-      open: initiatives.filter(
-        (i) => i.status === "open" || i.status === "in_progress"
-      ).length,
-      done: initiatives.filter(
-        (i) => i.status === "done" || i.status === "closed"
-      ).length,
-      total: initiatives.length,
-    };
-
     return NextResponse.json({
-      kpis,
       pareto,
       severityTimeline,
       defectTrend,
       weeklyRollup,
       claimLag,
       learnings,
-      backlog,
       sectionHeatmap,
       severityByOccurrence,
       severityTotals,

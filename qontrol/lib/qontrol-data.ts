@@ -8,6 +8,10 @@ export type Clarity = "match" | "needs clarification" | "warning";
 
 export type Severity = "high" | "medium" | "low";
 
+export type SourceType = "claim" | "defect";
+
+export type ResponsibleTeam = "RD" | "MO" | "SC";
+
 export type CaseState =
   | "unassigned"
   | "assigned"
@@ -27,12 +31,22 @@ export type TimelineEvent = {
 export type SimilarTicket = {
   id: string;
   title: string;
+  preview: string;
   story: StoryKey;
   team: string;
+  fixedBy: string;
   actionTaken: string;
   timeToFix: string;
-  outcome: "worked" | "partial" | "reopened";
+  resolutionDays: number | null;
+  outcome: "worked" | "open";
   learning: string;
+};
+
+export type EmailDraft = {
+  to: string[];
+  cc: string[];
+  subject: string;
+  body: string;
 };
 
 export type ProposedFix = {
@@ -68,6 +82,47 @@ export type ProcessTrendPoint = {
 export type DistributionPoint = {
   label: string;
   count: number;
+  detail?: string;
+  highlight?: boolean;
+};
+
+export type StorySignalPoint = {
+  label: string;
+  defectCount: number;
+  failCount: number;
+  marginalCount: number;
+  highlight?: boolean;
+};
+
+export type StoryHeatmapCell = {
+  detected: string;
+  occurred: string;
+  count: number;
+};
+
+export type StorySectionHeatmap = {
+  cells: StoryHeatmapCell[];
+  detectedOrder: string[];
+  occurrenceOrder: string[];
+  maxCount: number;
+};
+
+export type StoryScatterPoint = {
+  id: string;
+  x: number;
+  y: number;
+  articleName: string;
+  market: string | null;
+  cost: number | null;
+  claimTs: string;
+  complaintExcerpt: string;
+};
+
+export type StoryMatrixCell = {
+  order: string;
+  operator: string;
+  count: number;
+  defectTypes: string[];
   highlight?: boolean;
 };
 
@@ -77,6 +132,14 @@ export type StoryVisualization =
       title: string;
       summary: string;
       steps: FlowStep[];
+      batchId: string;
+      supplierName: string;
+      receivedDate: string | null;
+      exposedProducts: number;
+      affectedProducts: number;
+      defectRate: number;
+      lagDistribution: DistributionPoint[];
+      testOutcomes: DistributionPoint[];
       annotations: string[];
     }
   | {
@@ -84,7 +147,9 @@ export type StoryVisualization =
       title: string;
       summary: string;
       section: string;
-      trend: ProcessTrendPoint[];
+      trend: StorySignalPoint[];
+      heatmap: StorySectionHeatmap;
+      filteredFalsePositives: number;
       annotations: string[];
     }
   | {
@@ -94,6 +159,9 @@ export type StoryVisualization =
       assembly: string;
       findNumber: string;
       lagDistribution: DistributionPoint[];
+      claimScatter: StoryScatterPoint[];
+      fieldOnlyClaims: number;
+      overlappingClaims: number;
       annotations: string[];
     }
   | {
@@ -101,9 +169,34 @@ export type StoryVisualization =
       title: string;
       summary: string;
       operator: string;
-      steps: FlowStep[];
+      orderMatrix: {
+        orders: string[];
+        operators: string[];
+        cells: StoryMatrixCell[];
+        maxCount: number;
+      };
+      severityMix: DistributionPoint[];
+      actionSnapshot: {
+        openActions: number;
+        closedActions: number;
+        latestAction: string;
+      };
       annotations: string[];
     };
+
+export type TraceabilityFact = {
+  label: string;
+  value: string;
+  highlight?: boolean;
+};
+
+export type CaseTraceability = {
+  title: string;
+  summary: string;
+  mermaid: string;
+  facts: TraceabilityFact[];
+  notes: string[];
+};
 
 export type TeamTicket = {
   system: "GitHub" | "Service Cloud" | "QMS";
@@ -119,14 +212,19 @@ export type TeamTicket = {
   projectItemId?: number;
   projectUrl?: string;
   lastSyncNote?: string;
+  discussionSummary?: string;
+  discussionUpdatedAt?: string;
 };
 
 export type QontrolCase = {
   id: string;
   title: string;
-  sourceType: "claim" | "defect";
+  sourceType: SourceType;
   state: CaseState;
   story: StoryKey;
+  defectType: string;
+  similarityKey: string | null;
+  responsibleTeam: ResponsibleTeam;
   clarity: Clarity;
   severity: Severity;
   costUsd: number;
@@ -148,27 +246,19 @@ export type QontrolCase = {
   evidenceTrail: string[];
   triageContext: TriageContext;
   visualization: StoryVisualization;
+  traceability?: CaseTraceability;
   proposedFix: ProposedFix;
   requestedAction: {
     containment: string;
     permanentFix: string;
     validation: string;
   };
+  similarClaimIds: string[];
   similarTickets: SimilarTicket[];
   learnings: string[];
   timeline: TimelineEvent[];
-  emailDraft: {
-    to: string[];
-    cc: string[];
-    subject: string;
-    body: string;
-  };
-  escalationEmailDraft: {
-    to: string[];
-    cc: string[];
-    subject: string;
-    body: string;
-  };
+  emailDraft: EmailDraft;
+  escalationEmailDraft: EmailDraft;
 };
 
 export const storyLabel: Record<StoryKey, string> = {
@@ -179,7 +269,18 @@ export const storyLabel: Record<StoryKey, string> = {
 };
 
 export const clarityLabel: Record<Clarity, string> = {
-  match: "Match",
+  match: "Error",
   "needs clarification": "Needs clarification",
   warning: "Warning",
+};
+
+export const sourceTypeLabel: Record<SourceType, string> = {
+  defect: "Defect",
+  claim: "Claim",
+};
+
+export const responsibleTeamLabel: Record<ResponsibleTeam, string> = {
+  RD: "RD",
+  MO: "MO",
+  SC: "SC",
 };
