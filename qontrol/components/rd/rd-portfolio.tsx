@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import type { QontrolCase } from "@/lib/qontrol-data";
 import type {
@@ -16,6 +17,18 @@ import {
   longLagFcs,
 } from "@/lib/db/rd";
 
+import { RdBriefingPanel } from "@/components/rd-briefing-panel";
+import {
+  PortfolioTimeRange,
+  type TimeRangeValue,
+} from "@/components/portfolio-time-range";
+
+import { ClaimLagDonut } from "./charts/ClaimLagDonut";
+import { DesignGapAlert } from "./charts/DesignGapAlert";
+import { InboxTimeline } from "./charts/InboxTimeline";
+import { LagSeverityScatter } from "./charts/LagSeverityScatter";
+import { RecurringPartsTreemap } from "./charts/RecurringPartsTreemap";
+import { SignalGauge } from "./charts/SignalGauge";
 import { SpineHoverProvider, useSpineRowProps } from "./spine-hover-context";
 import { SpineChipBar } from "./spine-chip-bar";
 
@@ -26,11 +39,71 @@ type Props = {
   recentDecisions: ProductActionRow[];
   filter: string | null;
   part: string | null;
+  timeRange: { from: string; to: string };
 };
+
+function buildRdHref(
+  timeRange: { from: string; to: string },
+  next: { filter?: string; part?: string },
+): string {
+  const p = new URLSearchParams();
+  p.set("from", timeRange.from);
+  p.set("to", timeRange.to);
+  if (next.filter) p.set("filter", next.filter);
+  if (next.part) p.set("part", next.part);
+  return `/rd?${p.toString()}`;
+}
+
+function RdTimeRangeControl({ value }: { value: { from: string; to: string } }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
+
+  const onChange = useCallback(
+    (range: TimeRangeValue) => {
+      if (!range) return;
+      startTransition(() => {
+        const p = new URLSearchParams(searchParams.toString());
+        p.set("from", range.from);
+        p.set("to", range.to);
+        router.push(`${pathname}?${p.toString()}`);
+      });
+    },
+    [pathname, router, searchParams],
+  );
+
+  return (
+    <PortfolioTimeRange value={value} onChange={onChange} isFetching={isPending} />
+  );
+}
 
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return "-";
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "2-digit" });
+}
+
+function filterInboxCases(
+  cases: QontrolCase[],
+  filterKey: string | null,
+  multiFcParts: ReturnType<typeof countFcsPerPart>,
+  longLag: ClaimLagRow[],
+  gapFcs: ClaimLagRow[],
+): QontrolCase[] {
+  if (!filterKey) return cases;
+  if (filterKey === "recurring_part") {
+    const parts = new Set(multiFcParts.map((r) => r.part_number));
+    return cases.filter((c) => parts.has(c.partNumber));
+  }
+  if (filterKey === "long_lag") {
+    const ids = new Set(longLag.map((c) => c.field_claim_id));
+    return cases.filter((c) => ids.has(c.id));
+  }
+  if (filterKey === "design_gap") {
+    const ids = new Set(gapFcs.map((c) => c.field_claim_id));
+    return cases.filter((c) => ids.has(c.id));
+  }
+  return cases;
 }
 
 function KpiCard({ label, value, hint }: { label: string; value: string | number; hint: string }) {
@@ -67,6 +140,17 @@ export function RdPortfolio(props: Props) {
   );
 }
 
+const timeRangeFallback = (
+  <section className="pf-time-range pf-time-range-card" aria-hidden>
+    <div className="pf-time-range-inner">
+      <div
+        className="pf-skeleton"
+        style={{ height: 44, borderRadius: 10, width: "100%", maxWidth: 520 }}
+      />
+    </div>
+  </section>
+);
+
 function RdPortfolioInner({
   cases,
   claims,
@@ -74,6 +158,7 @@ function RdPortfolioInner({
   recentDecisions,
   filter,
   part,
+  timeRange,
 }: Props) {
   const scoped = useMemo(() => {
     if (!part) return { claims, defects, cases };
@@ -89,6 +174,11 @@ function RdPortfolioInner({
   const longLag = useMemo(() => longLagFcs(scoped.claims), [scoped.claims]);
   const gapFcs = useMemo(() => designGapFcs(scoped.claims, scoped.defects), [scoped.claims, scoped.defects]);
   const lagBuckets = useMemo(() => lagDistribution(scoped.claims), [scoped.claims]);
+
+  const filteredCases = useMemo(
+    () => filterInboxCases(scoped.cases, filter, multiFcParts, longLag, gapFcs),
+    [scoped.cases, filter, multiFcParts, longLag, gapFcs],
+  );
 
   const openCases = scoped.cases.filter((c) => c.state !== "closed");
   const awaitingQm = scoped.cases.filter((c) => c.state === "returned_to_qm_for_verification");
@@ -139,70 +229,135 @@ function RdPortfolioInner({
         </div>
       </section>
 
-      <section className="card-surface">
+      <div className="top-gap">
+        <RdBriefingPanel />
+      </div>
+
+      <div className="top-gap">
+        <Suspense fallback={timeRangeFallback}>
+          <RdTimeRangeControl value={timeRange} />
+        </Suspense>
+      </div>
+
+      <section className="card-surface top-gap">
         <div className="rd-panel-header">
           <div>
             <h3>Signal thresholds</h3>
-            <p>Live rules on design-related FC patterns. Click a tile to focus the page.</p>
+            <p>Live rules on design-related FC patterns. Click a gauge to focus the page.</p>
           </div>
         </div>
-        <div className="rd-tile-grid">
-          <Link
-            href={`/rd?filter=recurring_part${part ? `&part=${part}` : ""}`}
-            className={`rd-tile rd-tile-link ${multiFcParts.length > 0 ? "is-primary" : ""}`}
-          >
-            <span className="rd-tile-label">2+ FCs on same part</span>
-            <span className="rd-tile-value">{multiFcParts.length}</span>
-            <span className="rd-tile-sub">
-              {multiFcParts[0]
+        <div className="rd-gauge-grid">
+          <SignalGauge
+            href={buildRdHref(timeRange, { filter: "recurring_part", part: part ?? undefined })}
+            label="2+ FCs on same part"
+            value={multiFcParts.length}
+            max={10}
+            tone="primary"
+            subtitle={
+              multiFcParts[0]
                 ? `Top: ${multiFcParts[0].part_number} (${multiFcParts[0].count})`
-                : "No recurring parts"}
-            </span>
-          </Link>
-          <Link
-            href={`/rd?filter=long_lag${part ? `&part=${part}` : ""}`}
-            className={`rd-tile rd-tile-link ${longLag.length > 0 ? "is-warning" : ""}`}
-          >
-            <span className="rd-tile-label">Lag &gt; 8 weeks</span>
-            <span className="rd-tile-value">{longLag.length}</span>
-            <span className="rd-tile-sub">
-              {longLag.length > 0 ? "Latent design signal" : "No long-lag FCs"}
-            </span>
-          </Link>
-          <Link
-            href={`/rd?filter=design_gap${part ? `&part=${part}` : ""}`}
-            className={`rd-tile rd-tile-link ${gapFcs.length > 0 ? "is-danger" : ""}`}
-          >
-            <span className="rd-tile-label">FC with no factory defect</span>
-            <span className="rd-tile-value">{gapFcs.length}</span>
-            <span className="rd-tile-sub">
-              {gapFcs.length > 0 ? "Design gap suspected" : "Factory caught every part"}
-            </span>
-          </Link>
+                : "No recurring parts"
+            }
+          />
+          <SignalGauge
+            href={buildRdHref(timeRange, { filter: "long_lag", part: part ?? undefined })}
+            label="Lag &gt; 8 weeks"
+            value={longLag.length}
+            max={20}
+            tone={longLag.length > 0 ? "warning" : "primary"}
+            subtitle={longLag.length > 0 ? "Latent design signal" : "No long-lag FCs"}
+          />
+          <SignalGauge
+            href={buildRdHref(timeRange, { filter: "design_gap", part: part ?? undefined })}
+            label="FC with no factory defect"
+            value={gapFcs.length}
+            max={15}
+            tone={gapFcs.length > 0 ? "danger" : "primary"}
+            subtitle={gapFcs.length > 0 ? "Design gap suspected" : "Factory caught every part"}
+          />
         </div>
       </section>
 
-      <div className="rd-grid top-gap">
-        <div className="stack-list">
-          <RdInboxPanel
-            cases={scoped.cases}
-            filter={filter}
-            multiFcParts={multiFcParts}
-            longLag={longLag}
-            gapFcs={gapFcs}
-            part={part}
-          />
+      <div className="rd-dashboard-stack top-gap">
+        <div className="rd-grid rd-dashboard-row">
+          <div className="stack-list">
+            <section className="card-surface panel chart-panel rd-chart-panel">
+              <div className="rd-panel-header">
+                <div>
+                  <h3>Inbox timeline</h3>
+                  <p className="chart-desc">Cases by last update — color shows severity.</p>
+                </div>
+              </div>
+              <InboxTimeline cases={filteredCases} />
+            </section>
 
-          <RecurringPartsPanel recurring={recurring} multiFcParts={multiFcParts} scoped={part} />
+            <RdInboxPanel
+              cases={scoped.cases}
+              filteredCases={filteredCases}
+              filter={filter}
+              part={part}
+              timeRange={timeRange}
+            />
+          </div>
+
+          <div className="stack-list">
+            <section className="card-surface panel chart-panel rd-chart-panel">
+              <div className="rd-panel-header">
+                <div>
+                  <h3>Claim lag distribution</h3>
+                  <p className="chart-desc">
+                    days_from_build across {scoped.claims.length} claims — share of lag buckets.
+                  </p>
+                </div>
+              </div>
+              <ClaimLagDonut buckets={lagBuckets} total={scoped.claims.length} />
+            </section>
+
+            <section className="card-surface rd-chart-panel">
+              <div className="rd-panel-header">
+                <div>
+                  <h3>Design-gap FCs</h3>
+                  <p className="chart-desc">Field claims with zero matching factory defects on that part.</p>
+                </div>
+              </div>
+              <DesignGapAlert gapFcs={gapFcs} />
+            </section>
+          </div>
         </div>
 
-        <div className="stack-list">
-          <LagDistributionPanel buckets={lagBuckets} total={scoped.claims.length} />
+        <div className="rd-grid rd-dashboard-row top-gap">
+          <section className={`card-surface panel chart-panel rd-chart-panel ${part ? "rd-panel--anchored" : ""}`}>
+            <div className="rd-panel-header">
+              <div>
+                <h3>Recurring parts in claims</h3>
+                <p className="chart-desc">
+                  {multiFcParts.length} part(s) with 2+ FCs — rectangle size = claim count. Click a cell to
+                  focus.
+                </p>
+              </div>
+              {part && (
+                <span className="rd-origin-badge">
+                  <em>from spine</em>·{part}
+                </span>
+              )}
+            </div>
+            <RecurringPartsTreemap rows={recurring} maxShown={12} timeRange={timeRange} />
+          </section>
 
-          <DesignGapPanel gapFcs={gapFcs} />
-
-          <RecentDecisionsPanel decisions={recentDecisions} />
+          <section className="card-surface panel chart-panel rd-chart-panel">
+            <div className="rd-panel-header">
+              <div>
+                <h3>Lag vs. severity</h3>
+                <p className="chart-desc">
+                  Field claims: days from build vs. case severity — color by part number.
+                </p>
+              </div>
+            </div>
+            <LagSeverityScatter claims={scoped.claims} cases={scoped.cases} />
+          </section>
         </div>
+
+        <RecentDecisionsPanel decisions={recentDecisions} />
       </div>
     </main>
   );
@@ -210,49 +365,31 @@ function RdPortfolioInner({
 
 type InboxProps = {
   cases: QontrolCase[];
+  filteredCases: QontrolCase[];
   filter: string | null;
-  multiFcParts: ReturnType<typeof countFcsPerPart>;
-  longLag: ClaimLagRow[];
-  gapFcs: ClaimLagRow[];
   part: string | null;
+  timeRange: { from: string; to: string };
 };
 
-function RdInboxPanel({ cases, filter, multiFcParts, longLag, gapFcs, part }: InboxProps) {
-  const filtered = useMemo(() => {
-    if (!filter) return cases;
-    if (filter === "recurring_part") {
-      const parts = new Set(multiFcParts.map((r) => r.part_number));
-      return cases.filter((c) => parts.has(c.partNumber));
-    }
-    if (filter === "long_lag") {
-      const ids = new Set(longLag.map((c) => c.field_claim_id));
-      return cases.filter((c) => ids.has(c.id));
-    }
-    if (filter === "design_gap") {
-      const ids = new Set(gapFcs.map((c) => c.field_claim_id));
-      return cases.filter((c) => ids.has(c.id));
-    }
-    return cases;
-  }, [cases, filter, multiFcParts, longLag, gapFcs]);
-
+function RdInboxPanel({ cases, filteredCases, filter, part, timeRange }: InboxProps) {
   return (
     <section className="card-surface">
       <div className="rd-panel-header">
         <div>
           <h3>R&D Inbox</h3>
           <p>
-            {filtered.length} of {cases.length} cases
+            {filteredCases.length} of {cases.length} cases
             {filter ? ` · filter: ${filter.replace("_", " ")}` : ""}
             {part ? ` · part: ${part}` : ""}
           </p>
         </div>
         {filter && (
-          <Link href={`/rd${part ? `?part=${part}` : ""}`} className="rd-back-link">
+          <Link href={buildRdHref(timeRange, { part: part ?? undefined })} className="rd-back-link">
             Clear filter
           </Link>
         )}
       </div>
-      {filtered.length === 0 ? (
+      {filteredCases.length === 0 ? (
         <p className="rd-empty">Nothing in the inbox matches.</p>
       ) : (
         <div style={{ padding: "0 18px 14px" }}>
@@ -264,7 +401,7 @@ function RdInboxPanel({ cases, filter, multiFcParts, longLag, gapFcs, part }: In
             <span>Source</span>
             <span>Last update</span>
           </div>
-          {filtered.map((c) => (
+          {filteredCases.map((c) => (
             <RdInboxRow key={c.id} case={c} />
           ))}
         </div>
@@ -298,150 +435,6 @@ function RdInboxRow({ case: c }: { case: QontrolCase }) {
       </span>
       <span>{c.sourceType === "defect" ? "D" : "FC"}</span>
       <small>{fmtDate(c.lastUpdateAt)}</small>
-    </Link>
-  );
-}
-
-function RecurringPartsPanel({
-  recurring,
-  multiFcParts,
-  scoped,
-}: {
-  recurring: ReturnType<typeof countFcsPerPart>;
-  multiFcParts: ReturnType<typeof countFcsPerPart>;
-  scoped: string | null;
-}) {
-  const max = Math.max(1, ...recurring.map((r) => r.count));
-  const shown = recurring.slice(0, 8);
-
-  return (
-    <section className={`card-surface ${scoped ? "rd-panel--anchored" : ""}`}>
-      <div className="rd-panel-header">
-        <div>
-          <h3>Recurring parts in claims</h3>
-          <p>
-            {multiFcParts.length} part(s) with 2+ FCs. Hover a row to see links glow across panels.
-          </p>
-        </div>
-        {scoped && <span className="rd-origin-badge"><em>from spine</em>·{scoped}</span>}
-      </div>
-      {shown.length === 0 ? (
-        <p className="rd-empty">No claims to group by part.</p>
-      ) : (
-        <div style={{ padding: "0 18px 14px" }}>
-          {shown.map((r) => (
-            <RecurringPartRow key={r.part_number} row={r} max={max} />
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function RecurringPartRow({
-  row,
-  max,
-}: {
-  row: ReturnType<typeof countFcsPerPart>[number];
-  max: number;
-}) {
-  const { onMouseEnter, onMouseLeave, linkedClass } = useSpineRowProps({ part: row.part_number });
-  return (
-    <Link
-      href={`/rd?filter=recurring_part&part=${row.part_number}`}
-      className={`rd-row rd-row-link ${linkedClass}`}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      style={{ gridTemplateColumns: "140px 1fr 40px" }}
-      title={row.articles.join(", ")}
-    >
-      <span className="rd-bar-label">{row.part_number}</span>
-      <span className="rd-bar-track">
-        <span className="rd-bar-fill" style={{ width: `${(row.count / max) * 100}%` }} />
-      </span>
-      <span className="rd-bar-value">{row.count}</span>
-    </Link>
-  );
-}
-
-function LagDistributionPanel({ buckets, total }: { buckets: ReturnType<typeof lagDistribution>; total: number }) {
-  const max = Math.max(1, ...buckets.map((b) => b.count));
-  return (
-    <section className="card-surface">
-      <div className="rd-panel-header">
-        <div>
-          <h3>Claim lag distribution</h3>
-          <p>days_from_build across {total} claims.</p>
-        </div>
-      </div>
-      <div style={{ padding: "0 18px 14px" }}>
-        {buckets.map((b) => (
-          <div
-            key={b.bucket}
-            className="rd-bar-row"
-            style={{ gridTemplateColumns: "80px 1fr 40px" }}
-          >
-            <span className="rd-bar-label">{b.bucket}</span>
-            <span className="rd-bar-track">
-              <span
-                className="rd-bar-fill"
-                style={{
-                  width: `${(b.count / max) * 100}%`,
-                  background: b.bucket === "8-12 wk" || b.bucket === "12+ wk" ? "var(--warning)" : "var(--rd-accent)",
-                }}
-              />
-            </span>
-            <span className="rd-bar-value">{b.count}</span>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function DesignGapPanel({ gapFcs }: { gapFcs: ClaimLagRow[] }) {
-  return (
-    <section className="card-surface">
-      <div className="rd-panel-header">
-        <div>
-          <h3>Design-gap FCs</h3>
-          <p>Field claims with zero matching factory defects on that part.</p>
-        </div>
-      </div>
-      {gapFcs.length === 0 ? (
-        <p className="rd-empty">No design-gap FCs right now.</p>
-      ) : (
-        <div style={{ padding: "0 18px 14px" }}>
-          {gapFcs.slice(0, 6).map((c) => (
-            <GapRow key={c.field_claim_id} claim={c} />
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function GapRow({ claim }: { claim: ClaimLagRow }) {
-  const { onMouseEnter, onMouseLeave, linkedClass } = useSpineRowProps({
-    part: claim.reported_part_number,
-    articleId: claim.article_id,
-    caseId: claim.field_claim_id,
-  });
-  return (
-    <Link
-      href={`/rd/${claim.field_claim_id}`}
-      className={`rd-row rd-row-link ${linkedClass}`}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      style={{ gridTemplateColumns: "110px 1fr 70px" }}
-    >
-      <strong style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--rd-accent-strong)" }}>
-        {claim.field_claim_id}
-      </strong>
-      <span style={{ fontSize: 12 }}>
-        {claim.reported_part_number} · {claim.article_name ?? claim.article_id}
-      </span>
-      <small>{claim.days_from_build ?? "-"}d lag</small>
     </Link>
   );
 }
