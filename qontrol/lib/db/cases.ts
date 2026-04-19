@@ -1,3 +1,5 @@
+import OpenAI from "openai";
+
 import {
   type CaseTraceability,
   type CaseState,
@@ -67,7 +69,6 @@ type ClaimRow = {
   claim_ts: string | null;
   market: string | null;
   complaint_text: string | null;
-  similar_to: string[] | null;
   reported_part_number: string | null;
   cost: number | null;
   mapped_defect_id: string | null;
@@ -171,6 +172,18 @@ const DEFAULT_QM_OWNER = "Nina Becker";
 const DEFAULT_CS_OWNER = "Lea Winter";
 const DEFAULT_USER = "qontrol";
 const UNCLASSIFIED_DEFECT_TYPE = "Unclassified";
+const DEFAULT_CLAIM_EMBEDDING_MODEL = "text-embedding-3-small";
+const CLAIM_SIMILARITY_LIMIT = 3;
+const CLAIM_EMBEDDING_INPUT_MAX_CHARS = 1_500;
+const CLAIM_SIMILARITY_CACHE_TTL_MS = 5 * 60_000;
+
+let claimSimilarityCache:
+  | {
+      key: string;
+      at: number;
+      similarIdsByCase: Map<string, string[]>;
+    }
+  | null = null;
 
 const ownerAssigneeByStory: Record<StoryKey, string> = {
   supplier: "Mira Vogel",
@@ -203,6 +216,179 @@ const managerByStory: Record<StoryKey, { name: string; email: string }> = {
 function normalizeSimilarityKey(value: string | null | undefined) {
   const normalized = value?.trim();
   return normalized ? normalized : null;
+}
+
+function getOpenAIKey(): string | null {
+  const key = process.env.OPENAI_API_KEY?.trim();
+  return key ? key : null;
+}
+
+function getClaimEmbeddingModel(): string {
+  return process.env.OPENAI_EMBEDDING_MODEL?.trim() || DEFAULT_CLAIM_EMBEDDING_MODEL;
+}
+
+function normalizeWhitespace(value: string | null | undefined) {
+  return value?.replace(/\s+/g, " ").trim() ?? "";
+}
+
+function limitText(value: string, maxChars: number) {
+  if (value.length <= maxChars) return value;
+  return `${value.slice(0, maxChars - 1).trimEnd()}...`;
+}
+
+function buildClaimSimilarityInput(item: QontrolCase) {
+  const complaint = normalizeWhitespace(item.summary);
+  const parts = [
+    complaint ? `Complaint: ${complaint}` : null,
+    item.defectType ? `Mapped defect: ${item.defectType}` : null,
+    item.market !== "N/A" ? `Market: ${item.market}` : null,
+    item.partNumber !== "Unknown" ? `Part: ${item.partNumber}` : null,
+    item.articleId ? `Article: ${item.articleId}` : null,
+  ].filter((value): value is string => Boolean(value));
+
+  return limitText(parts.join("\n"), CLAIM_EMBEDDING_INPUT_MAX_CHARS);
+}
+
+function cosineSimilarity(left: number[], right: number[]) {
+  if (left.length === 0 || left.length !== right.length) return 0;
+
+  let dot = 0;
+  let leftMagnitude = 0;
+  let rightMagnitude = 0;
+
+  for (let index = 0; index < left.length; index += 1) {
+    const leftValue = left[index] ?? 0;
+    const rightValue = right[index] ?? 0;
+    dot += leftValue * rightValue;
+    leftMagnitude += leftValue * leftValue;
+    rightMagnitude += rightValue * rightValue;
+  }
+
+  if (leftMagnitude === 0 || rightMagnitude === 0) return 0;
+
+  return dot / (Math.sqrt(leftMagnitude) * Math.sqrt(rightMagnitude));
+}
+
+function getTimeDistanceMs(left: string, right: string) {
+  const leftMs = new Date(left).getTime();
+  const rightMs = new Date(right).getTime();
+  if (!Number.isFinite(leftMs) || !Number.isFinite(rightMs)) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return Math.abs(leftMs - rightMs);
+}
+
+function buildClaimSimilarityCacheKey(claimCases: QontrolCase[]) {
+  return claimCases
+    .map((item) =>
+      [
+        item.id,
+        item.lastUpdateAt,
+        normalizeWhitespace(item.summary),
+        item.defectType,
+        item.market,
+        item.partNumber,
+        item.articleId,
+      ].join("::"),
+    )
+    .join("|");
+}
+
+async function buildRealtimeSimilarClaimIds(claimCases: QontrolCase[]) {
+  if (claimCases.length < 2) {
+    return new Map<string, string[]>(claimCases.map((item) => [item.id, []]));
+  }
+
+  const cacheKey = buildClaimSimilarityCacheKey(claimCases);
+  if (
+    claimSimilarityCache &&
+    claimSimilarityCache.key === cacheKey &&
+    Date.now() - claimSimilarityCache.at < CLAIM_SIMILARITY_CACHE_TTL_MS
+  ) {
+    return claimSimilarityCache.similarIdsByCase;
+  }
+
+  const apiKey = getOpenAIKey();
+  if (!apiKey) {
+    return new Map<string, string[]>(claimCases.map((item) => [item.id, []]));
+  }
+
+  const client = new OpenAI({ apiKey });
+  const response = await client.embeddings.create({
+    model: getClaimEmbeddingModel(),
+    input: claimCases.map((item) => buildClaimSimilarityInput(item)),
+  });
+  const embeddings = response.data
+    .slice()
+    .sort((a, b) => a.index - b.index)
+    .map((item) => item.embedding);
+
+  if (embeddings.length !== claimCases.length) {
+    throw new Error("Embedding response length did not match claim case count.");
+  }
+
+  const similarIdsByCase = new Map<string, string[]>();
+  for (let leftIndex = 0; leftIndex < claimCases.length; leftIndex += 1) {
+    const current = claimCases[leftIndex];
+    const currentEmbedding = embeddings[leftIndex] ?? [];
+    const relatedIds = claimCases
+      .map((candidate, rightIndex) => {
+        if (leftIndex === rightIndex) return null;
+
+        return {
+          id: candidate.id,
+          score: cosineSimilarity(currentEmbedding, embeddings[rightIndex] ?? []),
+          timeDistanceMs: getTimeDistanceMs(current.lastUpdateAt, candidate.lastUpdateAt),
+        };
+      })
+      .filter(
+        (
+          candidate,
+        ): candidate is {
+          id: string;
+          score: number;
+          timeDistanceMs: number;
+        } => Boolean(candidate),
+      )
+      .sort(
+        (left, right) =>
+          right.score - left.score ||
+          left.timeDistanceMs - right.timeDistanceMs ||
+          left.id.localeCompare(right.id),
+      )
+      .slice(0, CLAIM_SIMILARITY_LIMIT)
+      .map((candidate) => candidate.id);
+
+    similarIdsByCase.set(current.id, relatedIds);
+  }
+
+  claimSimilarityCache = {
+    key: cacheKey,
+    at: Date.now(),
+    similarIdsByCase,
+  };
+
+  return similarIdsByCase;
+}
+
+async function attachRealtimeClaimSimilarities(allCases: QontrolCase[]) {
+  const claimCases = allCases.filter((item) => item.sourceType === "claim");
+  if (claimCases.length === 0) return allCases;
+
+  try {
+    const similarIdsByCase = await buildRealtimeSimilarClaimIds(claimCases);
+    return allCases.map((item) =>
+      item.sourceType === "claim"
+        ? {
+            ...item,
+            similarClaimIds: similarIdsByCase.get(item.id) ?? [],
+          }
+        : item,
+    );
+  } catch (error) {
+    console.error("[cases] failed to compute realtime claim similarity", error);
+    return allCases;
+  }
 }
 
 function toDefectTypeLabel(value: string | null | undefined) {
@@ -951,9 +1137,7 @@ function buildBaseCaseFromClaim(row: ClaimRow): QontrolCase {
       permanentFix: signals.permanentFix,
       validation: signals.validation,
     },
-    similarClaimIds: Array.from(
-      new Set((row.similar_to ?? []).filter((claimId) => claimId !== row.field_claim_id)),
-    ).slice(0, 3),
+    similarClaimIds: [],
     similarTickets: [],
     learnings: [],
     timeline: [],
@@ -1809,7 +1993,7 @@ function buildTraceabilityWidget(params: {
   return {
     title: "Traceability tree",
     summary:
-      "Schema-driven lineage from supplier and BOM placement through build, discovery, measurement, and downstream impact.",
+      "Schema-driven lineage from supplier lot and BOM slot through build, discovery, measured deviation, and downstream impact for the unit under review.",
     mermaid: buildTraceabilityMermaid({
       supplierName,
       batchId,
@@ -1873,11 +2057,11 @@ function decorateCase(params: {
     );
   const similarClaimCases = getSimilarClaimCases(params.item, params.allCases);
   const matchingCases =
-    similarClaimCases.length > 0
+    params.item.sourceType === "claim"
       ? [params.item, ...similarClaimCases]
       : patternMatchingCases;
   const relatedCases =
-    similarClaimCases.length > 0
+    params.item.sourceType === "claim"
       ? similarClaimCases
       : patternMatchingCases.filter((entry) => entry.id !== params.item.id);
   const matchingProductIds = new Set(matchingCases.map((entry) => entry.productId));
@@ -2023,16 +2207,14 @@ export async function listCases(): Promise<QontrolCase[]> {
         select:
           "defect_id,product_id,defect_ts,product_build_ts,source_type,defect_code,severity,detected_section_name,occurrence_section_name,order_id,reported_part_number,image_url,cost,notes,article_id,article_name,detected_test_value,detected_test_overall,detected_test_unit,detected_test_name,detected_test_type,detected_test_lower,detected_test_upper",
         order: "defect_ts.desc",
-        limit: "120",
       },
     }),
     postgrestRequest<ClaimRow[]>("v_field_claim_detail", {
       method: "GET",
       query: {
         select:
-          "field_claim_id,product_id,claim_ts,market,complaint_text,similar_to,reported_part_number,cost,mapped_defect_id,mapped_defect_code,mapped_defect_severity,notes,article_id,article_name,product_build_ts,detected_section_name,days_from_build",
+          "field_claim_id,product_id,claim_ts,market,complaint_text,reported_part_number,cost,mapped_defect_id,mapped_defect_code,mapped_defect_severity,notes,article_id,article_name,product_build_ts,detected_section_name,days_from_build",
         order: "claim_ts.desc",
-        limit: "120",
       },
     }),
     fetchOptionalStates(),
@@ -2088,12 +2270,12 @@ export async function listCases(): Promise<QontrolCase[]> {
     bomNodesByBom.set(row.bom_id, current);
   }
 
-  const merged = [
+  const merged = await attachRealtimeClaimSimilarities([
     ...defects.map((row) => applyState(buildBaseCaseFromDefect(row), stateByCaseId.get(row.defect_id))),
     ...claims.map((row) =>
       applyState(buildBaseCaseFromClaim(row), stateByCaseId.get(row.field_claim_id)),
     ),
-  ];
+  ]);
 
   return merged
     .map((item) =>
