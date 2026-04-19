@@ -59,7 +59,9 @@ export default async function RdHomePage({ searchParams }: PageProps) {
       <RdPortfolio
         cases={snapshot.cases}
         claims={snapshot.claims}
+        claimsPrevious={snapshot.claimsPrevious}
         defects={snapshot.defects}
+        initiatives={snapshot.initiatives}
         recentDecisions={snapshot.recentDecisions}
         filter={sp.filter ?? null}
         part={sp.part ?? null}

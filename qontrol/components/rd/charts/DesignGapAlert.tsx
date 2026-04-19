@@ -19,7 +19,7 @@ function GapAlertRow({ claim }: { claim: ClaimLagRow }) {
   });
   return (
     <Link
-      href={`/rd/${claim.field_claim_id}`}
+      href={`/?case=${encodeURIComponent(claim.field_claim_id)}`}
       className={`rd-alert-row rd-row-link ${linkedClass}`}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}

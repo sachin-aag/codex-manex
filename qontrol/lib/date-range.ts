@@ -152,6 +152,18 @@ export function utcAddDays(ymd: UtcDay, days: number): UtcDay {
   return d.toISOString().slice(0, 10) as UtcDay;
 }
 
+/**
+ * Same inclusive calendar span as `range`, shifted back so the window ends the day before `range.from`.
+ * Used to compare metrics (e.g. field claims) against the immediately preceding period.
+ */
+export function previousUtcRangeInclusive(range: UtcRange): UtcRange {
+  const inclusiveDays = utcCalendarDaysBetween(range.from, range.to) + 1;
+  const prevTo = utcAddDays(range.from, -1);
+  const prevFrom = utcAddDays(prevTo, -(inclusiveDays - 1));
+  const { startIso, endIso } = utcBoundsFromDays(prevFrom, prevTo);
+  return { from: prevFrom, to: prevTo, startIso, endIso };
+}
+
 /** Clamp a UTC day to an inclusive [min, max] range (strings compare lexicographically for YYYY-MM-DD). */
 export function utcClampYmd(day: UtcDay, min: UtcDay, max: UtcDay): UtcDay {
   if (day < min) return min;

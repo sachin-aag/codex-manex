@@ -33,6 +33,17 @@ const COLORS = [
   "#1a8d55",
 ];
 
+const LEGEND_MAX = 8;
+
+/** Deterministic jitter in [-0.15, 0.15] so dots at same lag/severity spread slightly. */
+function yJitter(seed: string, baseY: number): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  const u = (h % 1001) / 1000;
+  const j = (u - 0.5) * 0.3;
+  return Math.min(3.45, Math.max(0.55, baseY + j));
+}
+
 function severityRank(s: Severity): number {
   switch (s) {
     case "low":
@@ -94,9 +105,10 @@ export function LagSeverityScatter({ claims, cases }: Props) {
       if (lag == null || !Number.isFinite(lag)) continue;
       const sev = sevByCaseId.get(cl.field_claim_id) ?? ("medium" as Severity);
       const pn = cl.reported_part_number ?? "unknown";
+      const baseY = severityRank(sev);
       pts.push({
         x: lag,
-        y: severityRank(sev),
+        y: yJitter(cl.field_claim_id, baseY),
         yLabel: severityLabel(sev),
         fieldClaimId: cl.field_claim_id,
         part: pn,
@@ -115,6 +127,9 @@ export function LagSeverityScatter({ claims, cases }: Props) {
       data: points.filter((p) => p.part === name),
     }));
   }, [parts, points]);
+
+  const legendParts = parts.slice(0, LEGEND_MAX);
+  const legendOverflow = Math.max(0, parts.length - LEGEND_MAX);
 
   if (points.length === 0) {
     return (
@@ -189,17 +204,25 @@ export function LagSeverityScatter({ claims, cases }: Props) {
         </ResponsiveContainer>
       </div>
       <div className="claim-lag-legend" aria-label="Series by part">
-        {byPart.map((g) => (
-          <span key={g.name} className="claim-lag-legend-chip" title={g.name}>
-            <span
-              className="claim-lag-legend-swatch"
-              style={{ background: g.color }}
-            />
-            <span className="claim-lag-legend-label">
-              {g.name.length > 28 ? `${g.name.slice(0, 26)}…` : g.name}
+        {legendParts.map((name) => {
+          const g = byPart.find((x) => x.name === name)!;
+          return (
+            <span key={name} className="claim-lag-legend-chip" title={name}>
+              <span
+                className="claim-lag-legend-swatch"
+                style={{ background: g.color }}
+              />
+              <span className="claim-lag-legend-label">
+                {name.length > 28 ? `${name.slice(0, 26)}…` : name}
+              </span>
             </span>
+          );
+        })}
+        {legendOverflow > 0 ? (
+          <span className="claim-lag-legend-overflow" title={`${legendOverflow} more part(s) not shown`}>
+            +{legendOverflow} more
           </span>
-        ))}
+        ) : null}
       </div>
     </div>
   );

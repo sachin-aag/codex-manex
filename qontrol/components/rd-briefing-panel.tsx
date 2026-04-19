@@ -12,7 +12,6 @@ import {
 import type {
   RdActionRequiredItem,
   RdBriefingPayload,
-  RdNextStepItem,
   RdPatternItem,
 } from "@/lib/rd-briefing/briefing-types";
 
@@ -29,7 +28,7 @@ type ApiErrorJson = {
 };
 
 const ID_PATTERN =
-  /\b(DEF-[0-9]{5}|PRD-[0-9]{5}|PA-[0-9]{5}|FC-[0-9]{5}|TR-[0-9]{6})\b/g;
+  /\b(DEF-[0-9]{5}|PRD-[0-9]{5}|PA-[0-9]{5}|FC-[0-9]{5}|TR-[0-9]{6}|CASE-[0-9]{3,5})\b/g;
 
 const SEVERITY_ORDER: Record<string, number> = {
   critical: 0,
@@ -38,23 +37,17 @@ const SEVERITY_ORDER: Record<string, number> = {
   low: 3,
 };
 
-const PRIORITY_ORDER: Record<string, number> = {
-  high: 0,
-  medium: 1,
-  low: 2,
-};
-
-/** Board: DEF-/FC-; initiatives PA-; portfolio TR-; R&D case detail /rd/[id] for case IDs. */
+/** Board: DEF-/FC-/CASE-; initiatives PA-; portfolio TR-; R&D case detail /rd/[id] for case IDs. */
 function hrefForId(id: string): string {
   if (id.startsWith("PA-")) return "/portfolio/initiatives";
-  if (id.startsWith("DEF-") || id.startsWith("FC-")) {
+  if (id.startsWith("DEF-") || id.startsWith("FC-") || id.startsWith("CASE-")) {
     return `/?case=${encodeURIComponent(id)}`;
   }
   return "/portfolio";
 }
 
 function hrefForRdCase(caseId: string): string {
-  if (caseId.startsWith("DEF-") || caseId.startsWith("FC-")) {
+  if (caseId.startsWith("DEF-") || caseId.startsWith("FC-") || caseId.startsWith("CASE-")) {
     return `/?case=${encodeURIComponent(caseId)}`;
   }
   return `/rd/${encodeURIComponent(caseId)}`;
@@ -107,14 +100,6 @@ function severityBadgeClass(sev: string): string {
   return "briefing-badge briefing-badge-muted";
 }
 
-function priorityBadgeClass(p: string): string {
-  const x = p.toLowerCase();
-  if (x === "high") return "briefing-badge briefing-badge-priority-high";
-  if (x === "medium") return "briefing-badge briefing-badge-priority-medium";
-  if (x === "low") return "briefing-badge briefing-badge-priority-low";
-  return "briefing-badge briefing-badge-muted";
-}
-
 function sortActions(rows: RdActionRequiredItem[]): RdActionRequiredItem[] {
   return [...rows].sort((a, b) => {
     const sa =
@@ -126,21 +111,10 @@ function sortActions(rows: RdActionRequiredItem[]): RdActionRequiredItem[] {
   });
 }
 
-function sortSteps(rows: RdNextStepItem[]): RdNextStepItem[] {
-  return [...rows].sort((a, b) => {
-    const pa =
-      PRIORITY_ORDER[(a.priority ?? "").toLowerCase()] ?? 99;
-    const pb =
-      PRIORITY_ORDER[(b.priority ?? "").toLowerCase()] ?? 99;
-    return pa - pb;
-  });
-}
-
 export function RdBriefingPanel() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [data, setData] = useState<ApiSuccess | null>(null);
-  const [checkedSteps, setCheckedSteps] = useState<Set<number>>(() => new Set());
 
   const run = useCallback(async () => {
     setLoading(true);
@@ -181,10 +155,6 @@ export function RdBriefingPanel() {
     void run();
   }, [run]);
 
-  useEffect(() => {
-    setCheckedSteps(new Set());
-  }, [data?.generatedAt]);
-
   const sortedActions = useMemo(
     () =>
       data?.briefing?.action_required
@@ -192,21 +162,6 @@ export function RdBriefingPanel() {
         : [],
     [data],
   );
-
-  const sortedSteps = useMemo(
-    () =>
-      data?.briefing?.next_steps ? sortSteps(data.briefing.next_steps) : [],
-    [data],
-  );
-
-  const toggleStep = useCallback((displayIndex: number) => {
-    setCheckedSteps((prev) => {
-      const next = new Set(prev);
-      if (next.has(displayIndex)) next.delete(displayIndex);
-      else next.add(displayIndex);
-      return next;
-    });
-  }, []);
 
   return (
     <section className="briefing-embed" aria-label="AI R&D briefing">
@@ -262,15 +217,15 @@ export function RdBriefingPanel() {
       {data?.briefing && !loading ? (
         <>
           <div className="briefing-grid">
-            <div className="briefing-pane card-surface panel">
+            <div className="briefing-pane briefing-pane--action card-surface panel">
               <h3 className="briefing-pane-title">Action required</h3>
-              <p className="briefing-pane-sub">
-                Cases needing attention — severity, age, linked defects
+              <p className="briefing-pane-sub briefing-pane-sub--tight">
+                Open cases — severity, age, defects
               </p>
               {sortedActions.length === 0 ? (
                 <p className="briefing-empty">No items in this category.</p>
               ) : (
-                <div className="briefing-table-wrap briefing-pane-scroll">
+                <div className="briefing-table-wrap briefing-pane-scroll briefing-pane-scroll--action-fit">
                   <table className="briefing-table">
                     <thead>
                       <tr>
@@ -287,7 +242,14 @@ export function RdBriefingPanel() {
                           <td>
                             <CaseLink caseId={row.case_id} />
                           </td>
-                          <td>{row.issue}</td>
+                          <td>
+                            <span
+                              className="briefing-clip-1"
+                              title={row.issue}
+                            >
+                              {row.issue}
+                            </span>
+                          </td>
                           <td>
                             <span className={severityBadgeClass(row.severity)}>
                               {row.severity}
@@ -318,25 +280,31 @@ export function RdBriefingPanel() {
               )}
             </div>
 
-            <div className="briefing-pane card-surface panel">
+            <div className="briefing-pane briefing-pane--patterns card-surface panel">
               <h3 className="briefing-pane-title">Patterns &amp; insights</h3>
-              <p className="briefing-pane-sub">
-                Clusters across cases, parts, and defects
+              <p className="briefing-pane-sub briefing-pane-sub--tight">
+                Recurring themes — tap for full text
               </p>
               {data.briefing.patterns.length === 0 ? (
                 <p className="briefing-empty">No patterns highlighted.</p>
               ) : (
-                <div className="briefing-pane-scroll">
+                <div className="briefing-pane-scroll briefing-pane-scroll--patterns">
                   <ul className="briefing-pattern-list">
                     {data.briefing.patterns.map((p: RdPatternItem, i) => (
-                      <li key={`${p.pattern}-${i}`} className="briefing-pattern-item">
+                      <li key={`${p.pattern}-${i}`} className="briefing-pattern-item briefing-pattern-item--compact">
                         <div className="briefing-pattern-head">
-                          <span className="briefing-mono briefing-pattern-code">
+                          <span
+                            className="briefing-mono briefing-pattern-code briefing-clip-2"
+                            title={p.pattern}
+                          >
                             {p.pattern}
                           </span>
                         </div>
                         {p.affected_cases?.length ? (
-                          <p className="briefing-pattern-products">
+                          <p
+                            className="briefing-pattern-products briefing-clip-1"
+                            title={p.affected_cases.join(" · ")}
+                          >
                             Cases:{" "}
                             {p.affected_cases.map((cid, j) => (
                               <span key={`${cid}-${j}`}>
@@ -347,7 +315,12 @@ export function RdBriefingPanel() {
                           </p>
                         ) : null}
                         {p.insight ? (
-                          <p className="briefing-pattern-trend">{p.insight}</p>
+                          <p
+                            className="briefing-pattern-trend briefing-clip-2"
+                            title={p.insight}
+                          >
+                            {p.insight}
+                          </p>
                         ) : null}
                       </li>
                     ))}
@@ -373,59 +346,6 @@ export function RdBriefingPanel() {
                 </div>
               )}
             </div>
-          </div>
-
-          <div className="briefing-next-steps card-surface panel">
-            <h3 className="briefing-pane-title">Recommended next steps</h3>
-            <p className="briefing-pane-sub">
-              Check off items as you address them (stored in this session only).
-            </p>
-            {sortedSteps.length === 0 ? (
-              <p className="briefing-empty">No next steps suggested.</p>
-            ) : (
-              <ul className="briefing-checklist">
-                {sortedSteps.map((step, displayIndex) => (
-                  <li
-                    key={`${step.action}-${displayIndex}`}
-                    className="briefing-check-row"
-                  >
-                    <label className="briefing-check-label">
-                      <input
-                        type="checkbox"
-                        className="briefing-checkbox"
-                        checked={checkedSteps.has(displayIndex)}
-                        onChange={() => toggleStep(displayIndex)}
-                      />
-                      <span className="briefing-check-body">
-                        <span className="briefing-check-action">{step.action}</span>
-                        <span className="briefing-check-meta">
-                          {step.related_ids?.length ? (
-                            <span className="briefing-check-ids">
-                              {step.related_ids.map((id, j) => (
-                                <span key={`${id}-${j}`} className="briefing-id-inline">
-                                  {j > 0 ? " · " : null}
-                                  <IdLink id={id} />
-                                </span>
-                              ))}
-                            </span>
-                          ) : null}
-                          {step.suggested_owner ? (
-                            <span className="briefing-owner-chip">
-                              {step.suggested_owner}
-                            </span>
-                          ) : null}
-                          <span
-                            className={priorityBadgeClass(step.priority ?? "")}
-                          >
-                            {step.priority}
-                          </span>
-                        </span>
-                      </span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
         </>
       ) : null}

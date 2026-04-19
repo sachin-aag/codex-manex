@@ -94,7 +94,7 @@ export function ClaimLagDonut({ buckets, total }: Props) {
         </ResponsiveContainer>
       </div>
       <div className="rd-donut-center-label" aria-hidden>
-        <span className="rd-donut-center-kicker">Total claims</span>
+        <span className="rd-donut-center-kicker">Claims with lag</span>
         <span className="rd-donut-center-value">{total}</span>
       </div>
     </div>

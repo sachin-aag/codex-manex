@@ -1,4 +1,8 @@
-import { dateRangeAppend, type UtcRange } from "@/lib/date-range";
+import {
+  dateRangeAppend,
+  timestampRangeAppend,
+  type UtcRange,
+} from "@/lib/date-range";
 import type { QualitySummaryRow } from "@/lib/portfolio-data";
 import { postgrestRequest } from "@/lib/db/postgrest";
 
@@ -166,17 +170,28 @@ async function fetchClaimTsForIds(
   return map;
 }
 
-/** When Qontrol has no closed rows, approximate response time: defect capture → rework event. */
+/** When Qontrol has no closed rows, approximate response time: defect capture → first rework in the row set. */
 function avgDaysDefectToRework(
   reworkRows: ReworkLagRow[],
   defectTs: Map<string, string | null>,
 ): number | null {
-  const deltas: number[] = [];
+  const earliestTsByDefect = new Map<string, string>();
   for (const r of reworkRows) {
-    const cap = defectTs.get(r.defect_id);
-    if (!cap || !r.ts) continue;
+    if (!r.defect_id || !r.ts) continue;
+    const prev = earliestTsByDefect.get(r.defect_id);
+    const t = new Date(r.ts).getTime();
+    if (!Number.isFinite(t)) continue;
+    if (prev == null || t < new Date(prev).getTime()) {
+      earliestTsByDefect.set(r.defect_id, r.ts);
+    }
+  }
+
+  const deltas: number[] = [];
+  for (const [defectId, ts] of earliestTsByDefect) {
+    const cap = defectTs.get(defectId);
+    if (!cap) continue;
     const t0 = new Date(cap).getTime();
-    const t1 = new Date(r.ts).getTime();
+    const t1 = new Date(ts).getTime();
     if (!Number.isFinite(t0) || !Number.isFinite(t1) || t1 < t0) continue;
     deltas.push((t1 - t0) / (1000 * 60 * 60 * 24));
   }
@@ -185,7 +200,7 @@ function avgDaysDefectToRework(
 }
 
 export type FetchDashboardKpisOpts = {
-  /** Defect/rework rates and period note follow this window; open actions stay global. */
+  /** All KPIs are computed within this window when provided. */
   range: UtcRange;
 };
 
@@ -218,12 +233,18 @@ async function fetchDashboardKpisForRange(range: UtcRange): Promise<DashboardKpi
   const defectRatePct = defectRate * 100;
   const reworkRatePct = reworkRate * 100;
 
+  const rangeTsAppend = timestampRangeAppend(
+    "ts",
+    range.startIso,
+    range.endIso,
+  );
   const actions = await fetchOptional(() =>
     postgrestRequest<ProductActionRow[]>("product_action", {
       query: {
         select: "action_id,status",
         limit: "20000",
       },
+      queryAppend: rangeTsAppend,
     }),
   );
 
@@ -238,15 +259,21 @@ async function fetchDashboardKpisForRange(range: UtcRange): Promise<DashboardKpi
         current_state: "eq.closed",
         limit: "5000",
       },
+      queryAppend: timestampRangeAppend(
+        "updated_at",
+        range.startIso,
+        range.endIso,
+      ),
     }),
   );
   const reworkRowsList = await fetchOptional(() =>
     postgrestRequest<ReworkLagRow[]>("rework", {
       query: {
         select: "defect_id,ts",
-        order: "ts.desc",
-        limit: "200000",
+        order: "ts.asc",
+        limit: "20000",
       },
+      queryAppend: rangeTsAppend,
     }),
   );
 
@@ -313,8 +340,8 @@ async function fetchDashboardKpisForRange(range: UtcRange): Promise<DashboardKpi
     `Filtered window: ${range.from} – ${range.to} (UTC). ` +
     `Defect and rework rates use sums of defect_count and rework_count vs. products_built from ` +
     `v_quality_summary rows with week_start in range (not catalog-wide). ` +
-    `Open actions counts all non-terminal product_action rows. ` +
-    `Avg. time to close / rework is not limited to this window.`;
+    `Open actions, avg. time to close, and rework fallback use the same window ` +
+    `(product_action.ts, qontrol_case_state.updated_at, rework.ts).`;
 
   return {
     defectRate,

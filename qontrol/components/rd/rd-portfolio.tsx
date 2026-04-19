@@ -16,7 +16,6 @@ import {
   lagDistribution,
   longLagFcs,
 } from "@/lib/db/rd";
-
 import { RdBriefingPanel } from "@/components/rd-briefing-panel";
 import {
   PortfolioTimeRange,
@@ -25,17 +24,18 @@ import {
 
 import { ClaimLagDonut } from "./charts/ClaimLagDonut";
 import { DesignGapAlert } from "./charts/DesignGapAlert";
-import { InboxTimeline } from "./charts/InboxTimeline";
-import { LagSeverityScatter } from "./charts/LagSeverityScatter";
 import { RecurringPartsTreemap } from "./charts/RecurringPartsTreemap";
 import { SignalGauge } from "./charts/SignalGauge";
 import { SpineHoverProvider, useSpineRowProps } from "./spine-hover-context";
 import { SpineChipBar } from "./spine-chip-bar";
+import { RdKpiBar, type RdKpiBarModel } from "./rd-kpi-bar";
 
 type Props = {
   cases: QontrolCase[];
   claims: ClaimLagRow[];
+  claimsPrevious: ClaimLagRow[];
   defects: DefectHistoryRow[];
+  initiatives: ProductActionRow[];
   recentDecisions: ProductActionRow[];
   filter: string | null;
   part: string | null;
@@ -109,21 +109,23 @@ function filterInboxCases(
 function KpiCard({ label, value, hint }: { label: string; value: string | number; hint: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="metric-card" style={{ position: "relative" }}>
-      <span>{label}</span>
-      <button
-        type="button"
-        className="kpi-info-btn"
-        aria-label={`Info: ${label}`}
-        onClick={() => setOpen((v) => !v)}
-        onBlur={() => setOpen(false)}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="16" x2="12" y2="12" />
-          <line x1="12" y1="8" x2="12.01" y2="8" />
-        </svg>
-      </button>
+    <div className="metric-card kpi-card" style={{ position: "relative" }}>
+      <div className="kpi-card-label-row">
+        <span>{label}</span>
+        <button
+          type="button"
+          className="kpi-info-btn"
+          aria-label={`Info: ${label}`}
+          onClick={() => setOpen((v) => !v)}
+          onBlur={() => setOpen(false)}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
+          </svg>
+        </button>
+      </div>
       <strong>{value}</strong>
       {open && (
         <div className="kpi-tooltip">{hint}</div>
@@ -154,7 +156,9 @@ const timeRangeFallback = (
 function RdPortfolioInner({
   cases,
   claims,
+  claimsPrevious,
   defects,
+  initiatives,
   recentDecisions,
   filter,
   part,
@@ -169,11 +173,21 @@ function RdPortfolioInner({
     };
   }, [claims, defects, cases, part]);
 
+  const scopedPrevClaims = useMemo(() => {
+    if (!part) return claimsPrevious;
+    return claimsPrevious.filter((c) => c.reported_part_number === part);
+  }, [claimsPrevious, part]);
+
   const recurring = useMemo(() => countFcsPerPart(scoped.claims), [scoped.claims]);
   const multiFcParts = recurring.filter((r) => r.count >= 2);
   const longLag = useMemo(() => longLagFcs(scoped.claims), [scoped.claims]);
   const gapFcs = useMemo(() => designGapFcs(scoped.claims, scoped.defects), [scoped.claims, scoped.defects]);
   const lagBuckets = useMemo(() => lagDistribution(scoped.claims), [scoped.claims]);
+  const lagClaimsTotal = useMemo(
+    () => lagBuckets.reduce((s, b) => s + b.count, 0),
+    [lagBuckets],
+  );
+  const longLagPrev = useMemo(() => longLagFcs(scopedPrevClaims), [scopedPrevClaims]);
 
   const filteredCases = useMemo(
     () => filterInboxCases(scoped.cases, filter, multiFcParts, longLag, gapFcs),
@@ -191,6 +205,96 @@ function RdPortfolioInner({
     const mid = Math.floor(lags.length / 2);
     return lags.length % 2 === 0 ? Math.round((lags[mid - 1] + lags[mid]) / 2) : lags[mid];
   }, [scoped.claims]);
+
+  const rdKpiModel = useMemo((): RdKpiBarModel => {
+    const gapCount = gapFcs.length;
+    const lags = scoped.claims
+      .map((c) => c.days_from_build)
+      .filter((d): d is number => typeof d === "number");
+    const avgDays = lags.length ? lags.reduce((a, b) => a + b, 0) / lags.length : null;
+    const avgWeeks = avgDays != null ? avgDays / 7 : null;
+    const avgLagWeeksLabel = avgWeeks != null ? `${avgWeeks.toFixed(1)} wk` : "—";
+
+    const top =
+      lagBuckets.length > 0
+        ? lagBuckets.reduce((a, b) => (a.count >= b.count ? a : b), lagBuckets[0]!)
+        : { bucket: "", count: 0 };
+    const lagPatternHint =
+      scoped.claims.length === 0
+        ? "No claims in this window"
+        : top.count > 0
+          ? `${top.bucket} pattern`
+          : "No lag data";
+
+    const longCur = longLag.length;
+    const longPrev = longLagPrev.length;
+    const delta = longCur - longPrev;
+    let nearMissHint: string;
+    if (scopedPrevClaims.length === 0) {
+      nearMissHint = "—";
+    } else if (longCur === 0 && longPrev === 0) {
+      nearMissHint = "No long-lag FCs in either period";
+    } else if (delta > 0) {
+      nearMissHint = `▲ +${delta} vs. previous period`;
+    } else if (delta < 0) {
+      nearMissHint = `▼ ${Math.abs(delta)} vs. previous period`;
+    } else {
+      nearMissHint = "Flat vs. previous period";
+    }
+
+    const openCasesArt = scoped.cases.filter((c) => c.state !== "closed");
+    const articleIds = Array.from(new Set(openCasesArt.map((c) => c.articleId))).filter(Boolean);
+    const articlesHint =
+      articleIds.length === 0
+        ? "No open cases in view"
+        : `${articleIds.slice(0, 2).join(", ")}${articleIds.length > 2 ? "…" : ""}`;
+
+    let openIni = 0;
+    let closedIni = 0;
+    for (const i of initiatives) {
+      if (i.status === "open" || i.status === "in_progress") openIni++;
+      else if (i.status === "done" || i.status === "closed") closedIni++;
+    }
+    const totalIni = initiatives.length;
+    const fmeaValueLabel = totalIni > 0 ? `${openIni} / ${totalIni}` : "—";
+    const fmeaHint =
+      totalIni > 0 ? `${closedIni} closed this period` : "No product actions in this window";
+
+    return {
+      designLeakCount: gapCount,
+      avgLagWeeksLabel,
+      lagPatternHint,
+      nearMissCount: longCur,
+      nearMissHint,
+      articlesCount: articleIds.length,
+      articlesHint,
+      fmeaValueLabel,
+      fmeaHint,
+      tones: {
+        designLeak: gapCount > 0 ? "bad" : "good",
+        avgLag: avgWeeks == null ? "neutral" : avgWeeks > 8 ? "warn" : "good",
+        nearMiss:
+          scopedPrevClaims.length === 0
+            ? "neutral"
+            : delta > 0
+              ? "warn"
+              : delta < 0
+                ? "good"
+                : "neutral",
+        articles: "neutral",
+        fmea: openIni > 0 ? "warn" : "neutral",
+      },
+    };
+  }, [
+    gapFcs,
+    lagBuckets,
+    longLag,
+    longLagPrev,
+    scoped.claims,
+    scoped.cases,
+    scopedPrevClaims,
+    initiatives,
+  ]);
 
   return (
     <main className="page-shell" data-dept="rd">
@@ -222,9 +326,9 @@ function RdPortfolioInner({
             hint="R&D proposed a fix and flipped the case back to QM. These are waiting for QM to verify the fix before closing."
           />
           <KpiCard
-            label="Median lag (open FCs)"
+            label="Median lag (FCs)"
             value={medianLag !== null ? `${medianLag} d` : "-"}
-            hint="Median days_from_build across open field claims. High values (>56 d) suggest latent design issues that only surface after extended use."
+            hint="Median days_from_build across field claims in this window (with numeric lag). High values (>56 d) suggest latent design issues that only surface after extended use."
           />
         </div>
       </section>
@@ -237,6 +341,10 @@ function RdPortfolioInner({
         <Suspense fallback={timeRangeFallback}>
           <RdTimeRangeControl value={timeRange} />
         </Suspense>
+      </div>
+
+      <div className="top-gap">
+        <RdKpiBar model={rdKpiModel} />
       </div>
 
       <section className="card-surface top-gap">
@@ -281,16 +389,6 @@ function RdPortfolioInner({
       <div className="rd-dashboard-stack top-gap">
         <div className="rd-grid rd-dashboard-row">
           <div className="stack-list">
-            <section className="card-surface panel chart-panel rd-chart-panel">
-              <div className="rd-panel-header">
-                <div>
-                  <h3>Inbox timeline</h3>
-                  <p className="chart-desc">Cases by last update — color shows severity.</p>
-                </div>
-              </div>
-              <InboxTimeline cases={filteredCases} />
-            </section>
-
             <RdInboxPanel
               cases={scoped.cases}
               filteredCases={filteredCases}
@@ -298,20 +396,6 @@ function RdPortfolioInner({
               part={part}
               timeRange={timeRange}
             />
-          </div>
-
-          <div className="stack-list">
-            <section className="card-surface panel chart-panel rd-chart-panel">
-              <div className="rd-panel-header">
-                <div>
-                  <h3>Claim lag distribution</h3>
-                  <p className="chart-desc">
-                    days_from_build across {scoped.claims.length} claims — share of lag buckets.
-                  </p>
-                </div>
-              </div>
-              <ClaimLagDonut buckets={lagBuckets} total={scoped.claims.length} />
-            </section>
 
             <section className="card-surface rd-chart-panel">
               <div className="rd-panel-header">
@@ -320,19 +404,33 @@ function RdPortfolioInner({
                   <p className="chart-desc">Field claims with zero matching factory defects on that part.</p>
                 </div>
               </div>
-              <DesignGapAlert gapFcs={gapFcs} />
+              <DesignGapAlert gapFcs={gapFcs} maxRows={4} />
+            </section>
+          </div>
+
+          <div className="stack-list">
+            <section className="card-surface panel chart-panel rd-chart-panel">
+              <div className="rd-panel-header">
+                <div>
+                  <h3>Claim lag distribution</h3>
+                  <p className="chart-desc">
+                    Share of lag buckets among {lagClaimsTotal} claim(s) with numeric lag (
+                    {scoped.claims.length} total in window).
+                  </p>
+                </div>
+              </div>
+              <ClaimLagDonut buckets={lagBuckets} total={lagClaimsTotal} />
             </section>
           </div>
         </div>
 
-        <div className="rd-grid rd-dashboard-row top-gap">
+        <div className="top-gap">
           <section className={`card-surface panel chart-panel rd-chart-panel ${part ? "rd-panel--anchored" : ""}`}>
             <div className="rd-panel-header">
               <div>
                 <h3>Recurring parts in claims</h3>
                 <p className="chart-desc">
-                  {multiFcParts.length} part(s) with 2+ FCs — rectangle size = claim count. Click a cell to
-                  focus.
+                  {multiFcParts.length} part(s) with 2+ FCs — rectangle size = claim count.
                 </p>
               </div>
               {part && (
@@ -341,19 +439,7 @@ function RdPortfolioInner({
                 </span>
               )}
             </div>
-            <RecurringPartsTreemap rows={recurring} maxShown={12} timeRange={timeRange} />
-          </section>
-
-          <section className="card-surface panel chart-panel rd-chart-panel">
-            <div className="rd-panel-header">
-              <div>
-                <h3>Lag vs. severity</h3>
-                <p className="chart-desc">
-                  Field claims: days from build vs. case severity — color by part number.
-                </p>
-              </div>
-            </div>
-            <LagSeverityScatter claims={scoped.claims} cases={scoped.cases} />
+            <RecurringPartsTreemap rows={recurring} maxShown={12} />
           </section>
         </div>
 
@@ -393,7 +479,10 @@ function RdInboxPanel({ cases, filteredCases, filter, part, timeRange }: InboxPr
         <p className="rd-empty">Nothing in the inbox matches.</p>
       ) : (
         <div style={{ padding: "0 18px 14px" }}>
-          <div className="rd-bar-row" style={{ gridTemplateColumns: "110px 1fr 110px 70px 70px 120px", color: "var(--text-muted)", fontSize: 10, fontWeight: 700, letterSpacing: 0.06, textTransform: "uppercase" }}>
+          <div
+            className="rd-bar-row rd-inbox-table-header"
+            style={{ gridTemplateColumns: "110px 1fr 110px 70px 70px 120px", color: "var(--text-muted)", fontSize: 10, fontWeight: 700, letterSpacing: 0.06, textTransform: "uppercase" }}
+          >
             <span>Case</span>
             <span>Article · title</span>
             <span>Part</span>
@@ -418,7 +507,7 @@ function RdInboxRow({ case: c }: { case: QontrolCase }) {
   });
   return (
     <Link
-      href={`/rd/${c.id}`}
+      href={`/?case=${encodeURIComponent(c.id)}`}
       className={`rd-row rd-row-link rd-inbox-row ${linkedClass}`}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}

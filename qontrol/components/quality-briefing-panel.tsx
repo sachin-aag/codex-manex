@@ -29,7 +29,7 @@ type ApiErrorJson = {
 };
 
 const ID_PATTERN =
-  /\b(DEF-[0-9]{5}|PRD-[0-9]{5}|FC-[0-9]{5}|TR-[0-9]{6})\b/g;
+  /\b(DEF-[0-9]{5}|PRD-[0-9]{5}|PA-[0-9]{5}|FC-[0-9]{5}|TR-[0-9]{6}|CASE-[0-9]{3,5})\b/g;
 
 const SEVERITY_ORDER: Record<string, number> = {
   critical: 0,
@@ -44,10 +44,10 @@ const PRIORITY_ORDER: Record<string, number> = {
   low: 2,
 };
 
-/** Qontrol case ids are defect_id (DEF-*) and field_claim_id (FC-*); `/?case=` opens the ticket on the home board. */
+/** Qontrol case ids are defect_id (DEF-*), field_claim_id (FC-*), CASE-*; `/?case=` opens the ticket on the home board. */
 function hrefForId(id: string): string {
   if (id.startsWith("PA-")) return "/portfolio/initiatives";
-  if (id.startsWith("DEF-") || id.startsWith("FC-")) {
+  if (id.startsWith("DEF-") || id.startsWith("FC-") || id.startsWith("CASE-")) {
     return `/?case=${encodeURIComponent(id)}`;
   }
   return "/portfolio";
