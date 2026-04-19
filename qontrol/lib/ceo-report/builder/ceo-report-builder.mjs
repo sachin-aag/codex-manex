@@ -1,7 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const { Presentation, PresentationFile } = await import("@oai/artifact-tool");
+const artifactToolSpecifier =
+  process.env.CEO_REPORT_ARTIFACT_TOOL_ENTRY ?? "@oai/artifact-tool";
+const { Presentation, PresentationFile } = await import(artifactToolSpecifier);
 
 const WIDTH = 1280;
 const HEIGHT = 720;

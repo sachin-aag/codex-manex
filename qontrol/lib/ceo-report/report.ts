@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import { buildCeoReportData } from "./data";
@@ -13,7 +14,15 @@ const REPORT_ROOT = path.join(process.cwd(), "public", "reports", "ceo-weekly");
 const LATEST_METADATA_PATH = path.join(REPORT_ROOT, "latest.json");
 const BUILDER_DIR = path.join(process.cwd(), "lib", "ceo-report", "builder");
 const BUILDER_SCRIPT_PATH = path.join(BUILDER_DIR, "ceo-report-builder.mjs");
-const ARTIFACT_TOOL_DIR = path.join(
+const PROJECT_ARTIFACT_TOOL_ENTRY_PATH = path.join(
+  process.cwd(),
+  "node_modules",
+  "@oai",
+  "artifact-tool",
+  "dist",
+  "artifact_tool.mjs",
+);
+const CACHED_ARTIFACT_TOOL_ENTRY_PATH = path.join(
   os.homedir(),
   ".cache",
   "codex-runtimes",
@@ -23,6 +32,8 @@ const ARTIFACT_TOOL_DIR = path.join(
   "node_modules",
   "@oai",
   "artifact-tool",
+  "dist",
+  "artifact_tool.mjs",
 );
 
 const SLIDE_TITLES = [
@@ -53,23 +64,19 @@ async function pathExists(targetPath: string) {
   }
 }
 
-async function ensureBuilderRuntime() {
-  const scopedDir = path.join(BUILDER_DIR, "node_modules", "@oai");
-  const linkPath = path.join(scopedDir, "artifact-tool");
+async function resolveArtifactToolSpecifier() {
+  const explicitSpecifier = process.env.CEO_REPORT_ARTIFACT_TOOL_ENTRY;
+  if (explicitSpecifier) return explicitSpecifier;
 
-  await fs.mkdir(scopedDir, { recursive: true });
-
-  try {
-    const existing = await fs.readlink(linkPath);
-    if (existing === ARTIFACT_TOOL_DIR) return;
-    await fs.rm(linkPath, { recursive: true, force: true });
-  } catch {
-    if (await pathExists(linkPath)) {
-      await fs.rm(linkPath, { recursive: true, force: true });
-    }
+  if (await pathExists(PROJECT_ARTIFACT_TOOL_ENTRY_PATH)) {
+    return pathToFileURL(PROJECT_ARTIFACT_TOOL_ENTRY_PATH).href;
   }
 
-  await fs.symlink(ARTIFACT_TOOL_DIR, linkPath, "dir");
+  if (await pathExists(CACHED_ARTIFACT_TOOL_ENTRY_PATH)) {
+    return pathToFileURL(CACHED_ARTIFACT_TOOL_ENTRY_PATH).href;
+  }
+
+  return null;
 }
 
 async function runDeckBuilder(data: CeoReportData) {
@@ -77,7 +84,13 @@ async function runDeckBuilder(data: CeoReportData) {
   await fs.mkdir(REPORT_ROOT, { recursive: true });
   await fs.rm(outputDir, { recursive: true, force: true });
   await fs.mkdir(outputDir, { recursive: true });
-  await ensureBuilderRuntime();
+
+  const artifactToolSpecifier = await resolveArtifactToolSpecifier();
+  if (!artifactToolSpecifier) {
+    throw new Error(
+      "CEO report generation runtime is unavailable in this environment. Existing decks can still be viewed and downloaded, but regeneration requires a local artifact-tool runtime.",
+    );
+  }
 
   const inputPath = path.join(outputDir, "deck-input.json");
   await fs.writeFile(inputPath, JSON.stringify(data, null, 2), "utf8");
@@ -85,6 +98,10 @@ async function runDeckBuilder(data: CeoReportData) {
   try {
     await execFileAsync(process.execPath, [BUILDER_SCRIPT_PATH, inputPath, outputDir], {
       cwd: BUILDER_DIR,
+      env: {
+        ...process.env,
+        CEO_REPORT_ARTIFACT_TOOL_ENTRY: artifactToolSpecifier,
+      },
       maxBuffer: 1024 * 1024 * 10,
     });
   } finally {

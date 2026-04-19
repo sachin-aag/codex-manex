@@ -127,17 +127,21 @@ export function CeoReportPage() {
     );
   }
 
-  const activeSlide = data.slides[currentSlideIndex];
+  const report = data;
+  const hasSlides = report.slides.length > 0;
+  const activeSlide = hasSlides ? report.slides[currentSlideIndex] : null;
 
   function showPreviousSlide() {
+    if (!hasSlides) return;
     setCurrentSlideIndex((current) =>
-      current === 0 ? data.slides.length - 1 : current - 1,
+      current === 0 ? report.slides.length - 1 : current - 1,
     );
   }
 
   function showNextSlide() {
+    if (!hasSlides) return;
     setCurrentSlideIndex((current) =>
-      current === data.slides.length - 1 ? 0 : current + 1,
+      current === report.slides.length - 1 ? 0 : current + 1,
     );
   }
 
@@ -146,13 +150,13 @@ export function CeoReportPage() {
       <section className="hero-strip portfolio-hero-headline ceo-report-hero">
         <div>
           <p className="eyebrow">CEO Report</p>
-          <h1>{data.title}</h1>
-          <p className="hero-copy">{data.subtitle}</p>
+          <h1>{report.title}</h1>
+          <p className="hero-copy">{report.subtitle}</p>
         </div>
         <div className="ceo-report-hero-actions">
           <a
             className="primary-button ceo-report-link-button"
-            href={data.downloadUrl}
+            href={report.downloadUrl}
             download
             target="_blank"
             rel="noreferrer"
@@ -180,30 +184,30 @@ export function CeoReportPage() {
         <div className="kpi-card">
           <span className="kpi-card-label">Generated</span>
           <span className="kpi-card-value ceo-report-kpi-value">
-            {formatTimestamp(data.generatedAt)}
+            {formatTimestamp(report.generatedAt)}
           </span>
           <p className="kpi-card-hint">Latest deck creation time</p>
         </div>
         <div className="kpi-card">
           <span className="kpi-card-label">Next scheduled</span>
           <span className="kpi-card-value ceo-report-kpi-value">
-            {formatTimestamp(data.nextGenerationAt)}
+            {formatTimestamp(report.nextGenerationAt)}
           </span>
           <p className="kpi-card-hint">Display-only weekly cadence</p>
         </div>
         <div className="kpi-card">
           <span className="kpi-card-label">High severity in deck</span>
-          <span className="kpi-card-value">{data.highSeverityTicketCount}</span>
+          <span className="kpi-card-value">{report.highSeverityTicketCount}</span>
           <p className="kpi-card-hint">
-            Comparing {data.summary.comparisonLastWeekLabel} to {data.summary.comparisonThisWeekLabel}
+            Comparing {report.summary.comparisonLastWeekLabel} to {report.summary.comparisonThisWeekLabel}
           </p>
         </div>
         <div className="kpi-card">
           <span className="kpi-card-label">Executive flag</span>
           <span className="kpi-card-value">
-            {data.laggingTeam.team ?? "Balanced"}
+            {report.laggingTeam.team ?? "Balanced"}
           </span>
-          <p className="kpi-card-hint">{data.laggingTeam.headline}</p>
+          <p className="kpi-card-hint">{report.laggingTeam.headline}</p>
         </div>
       </section>
 
@@ -212,13 +216,13 @@ export function CeoReportPage() {
           <div className="ceo-report-summary-copy">
             <h3>This week at a glance</h3>
             <p className="chart-desc">
-              {data.summary.openTickets} open tickets, {data.summary.highSeverityOpen} high-severity
-              cases, and {data.summary.overdueOpen} overdue follow-ups are reflected in this week&apos;s
-              deck.
+              {report.summary.openTickets} open tickets, {report.summary.highSeverityOpen}{" "}
+              high-severity cases, and {report.summary.overdueOpen} overdue follow-ups are
+              reflected in this week&apos;s deck.
             </p>
           </div>
           <div className="ceo-report-badge-row">
-            {data.narrativeCards.map((card) => (
+            {report.narrativeCards.map((card) => (
               <div key={card.title} className={`ceo-report-badge ceo-report-badge-${card.tone}`}>
                 <strong>{card.metricValue}</strong>
                 <span>{card.metricLabel}</span>
@@ -232,12 +236,12 @@ export function CeoReportPage() {
         <article className="card-surface panel ceo-report-carousel">
           <div className="ceo-report-slide-head">
             <div>
-              <p className="eyebrow">Slide {currentSlideIndex + 1}</p>
-              <h3>{activeSlide?.title}</h3>
+              <p className="eyebrow">Slide {hasSlides ? currentSlideIndex + 1 : "Preview"}</p>
+              <h3>{activeSlide?.title ?? "Slide preview unavailable"}</h3>
             </div>
             <div className="ceo-report-carousel-meta">
               <span>
-                {currentSlideIndex + 1} / {data.slides.length}
+                {hasSlides ? currentSlideIndex + 1 : 0} / {report.slides.length}
               </span>
             </div>
           </div>
@@ -248,6 +252,7 @@ export function CeoReportPage() {
               className="secondary-button ceo-report-carousel-button"
               onClick={showPreviousSlide}
               aria-label="Show previous slide"
+              disabled={!hasSlides}
             >
               ‹
             </button>
@@ -260,13 +265,18 @@ export function CeoReportPage() {
                   className="ceo-report-slide-image ceo-report-slide-image-large"
                 />
               </div>
-            ) : null}
+            ) : (
+              <div className="ceo-report-slide-stage ceo-report-slide-stage-empty">
+                <p className="chart-desc">Slide previews will appear here after the deck is rendered.</p>
+              </div>
+            )}
 
             <button
               type="button"
               className="secondary-button ceo-report-carousel-button"
               onClick={showNextSlide}
               aria-label="Show next slide"
+              disabled={!hasSlides}
             >
               ›
             </button>
@@ -274,7 +284,7 @@ export function CeoReportPage() {
 
           <div className="ceo-report-carousel-footer">
             <div className="ceo-report-carousel-dots" aria-label="Slide navigation">
-              {data.slides.map((slide, index) => (
+              {report.slides.map((slide, index) => (
                 <button
                   key={slide.imageUrl}
                   type="button"
@@ -293,7 +303,7 @@ export function CeoReportPage() {
 
       <section className="pf-section">
         <div className="ceo-report-narrative-grid">
-          {data.narrativeCards.map((card) => (
+          {report.narrativeCards.map((card) => (
             <div key={card.title} className={`card-surface panel ceo-report-narrative-card ceo-report-narrative-card-${card.tone}`}>
               <div className="ceo-report-narrative-metric">
                 <span>{card.metricLabel}</span>
