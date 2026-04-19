@@ -1305,6 +1305,7 @@ function buildTriageContext(params: {
 }): TriageContext {
   const comparableCases = params.matchingCases.filter((entry) => entry.id !== params.item.id);
   const openMatchingCases = comparableCases.filter((entry) => entry.state !== "closed");
+  const focusDefect = getFocusedDefect(params.relatedDefects, params.item.productId);
 
   if (!params.item.similarityKey) {
     if (params.item.sourceType === "claim" && comparableCases.length > 0) {
@@ -1330,7 +1331,7 @@ function buildTriageContext(params: {
   if (params.item.story === "supplier") {
     timeSignal = `${params.relatedDefects.length} related defects and ${params.relatedClaims.length} field claims linked to ${params.item.partNumber}.`;
   } else if (params.item.story === "process") {
-    timeSignal = `Spike concentrated around ${params.relatedDefects[0]?.occurrence_section_name ?? "Montage Linie 1"}.`;
+    timeSignal = `Spike concentrated around ${focusDefect?.occurrence_section_name ?? "Montage Linie 1"}.`;
   } else if (params.item.story === "design") {
     const lagCluster = params.relatedClaims.filter(
       (claim) => claim.days_from_build != null && claim.days_from_build >= 56 && claim.days_from_build < 84,
@@ -1526,6 +1527,7 @@ function buildProcessVisualization(params: {
   const relevantDefects = params.relatedDefects.filter(
     (row) => !isFalsePositiveNote(row.notes),
   );
+  const focusDefect = getFocusedDefect(relevantDefects, params.item.productId);
   const trendCounts = new Map<
     string,
     { label: string; defectCount: number; failCount: number; marginalCount: number }
@@ -1587,8 +1589,8 @@ function buildProcessVisualization(params: {
     summary:
       "Look for the short-lived spike, the section where it concentrates, and any inspection hotspot that only amplifies detection.",
     section:
-      relevantDefects[0]?.occurrence_section_name ??
-      relevantDefects[0]?.detected_section_name ??
+      focusDefect?.occurrence_section_name ??
+      focusDefect?.detected_section_name ??
       "Montage Linie 1",
     trend: trend.map((point) => ({
       label: point.label,
@@ -1913,11 +1915,7 @@ function buildTraceabilityWidget(params: {
   bomNodes: BomNodeRow[];
   storyReworks: ReworkSummaryRow[];
 }): CaseTraceability {
-  const focusDefect =
-    params.relatedDefects
-      .filter((row) => row.product_id === params.item.productId)
-      .sort((a, b) => new Date(b.defect_ts ?? 0).getTime() - new Date(a.defect_ts ?? 0).getTime())[0] ??
-    params.relatedDefects[0];
+  const focusDefect = getFocusedDefect(params.relatedDefects, params.item.productId);
   const focusClaim =
     params.relatedClaims
       .filter((row) => row.product_id === params.item.productId)
@@ -2033,6 +2031,15 @@ function buildTraceabilityWidget(params: {
         : []),
     ],
   };
+}
+
+function getFocusedDefect(defects: DefectRow[], productId: string) {
+  return (
+    defects
+      .filter((row) => row.product_id === productId)
+      .sort((a, b) => new Date(b.defect_ts ?? 0).getTime() - new Date(a.defect_ts ?? 0).getTime())[0] ??
+    defects[0]
+  );
 }
 
 function decorateCase(params: {

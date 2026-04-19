@@ -144,7 +144,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div className="sidebar-top">
         <div className="sidebar-brand">
           <div className="sidebar-logo">Q</div>
-          <span>Qontrol</span>
+          <div className="sidebar-brand-copy">
+            <span className="sidebar-brand-title">Qontrol</span>
+            <small className="sidebar-brand-tagline">Take Control of Quality.</small>
+          </div>
         </div>
         <button
           aria-expanded={!collapsed}

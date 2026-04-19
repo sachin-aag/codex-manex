@@ -211,8 +211,8 @@ export function StoryEvidenceView({ visualization, evidenceTrail, traceability }
     return (
       <div className="story-evidence-layout">
         <p className="story-visual-summary">{visualization.summary}</p>
-        <StoryEvidenceGraph key={graphKey} visualization={visualization} />
         <StoryTraceabilityView traceability={traceability} />
+        <StoryEvidenceGraph key={graphKey} visualization={visualization} />
         <div className="story-kpi-grid">
           <div className="story-kpi-card">
             <span>Supplier</span>
@@ -270,8 +270,8 @@ export function StoryEvidenceView({ visualization, evidenceTrail, traceability }
         <p className="story-visual-summary">
           {visualization.summary} Focus section: <strong>{visualization.section}</strong>.
         </p>
-        <StoryEvidenceGraph key={graphKey} visualization={visualization} />
         <StoryTraceabilityView traceability={traceability} />
+        <StoryEvidenceGraph key={graphKey} visualization={visualization} />
         <div className="story-kpi-grid">
           <div className="story-kpi-card">
             <span>Focus section</span>
@@ -316,8 +316,8 @@ export function StoryEvidenceView({ visualization, evidenceTrail, traceability }
     return (
       <div className="story-evidence-layout">
         <p className="story-visual-summary">{visualization.summary}</p>
-        <StoryEvidenceGraph key={graphKey} visualization={visualization} />
         <StoryTraceabilityView traceability={traceability} />
+        <StoryEvidenceGraph key={graphKey} visualization={visualization} />
         <div className="story-kpi-grid">
           <div className="story-kpi-card">
             <span>BOM position</span>
@@ -390,8 +390,8 @@ export function StoryEvidenceView({ visualization, evidenceTrail, traceability }
       <p className="story-visual-summary">
         {visualization.summary} Dominant operator: <strong>{visualization.operator}</strong>.
       </p>
-      <StoryEvidenceGraph key={graphKey} visualization={visualization} />
       <StoryTraceabilityView traceability={traceability} />
+      <StoryEvidenceGraph key={graphKey} visualization={visualization} />
       {hasOrderMatrix || hasSeverityMix || hasActionSnapshot ? (
         <div
           className={`story-support-grid ${

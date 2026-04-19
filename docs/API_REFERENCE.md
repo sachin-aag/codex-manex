@@ -8,9 +8,12 @@ Three access layers:
 
 ## Authentication
 
-REST calls need the `Authorization` header:
+REST calls should include the `apikey` header. `Authorization: Bearer ...`
+also works and is what Supabase clients typically send. Using both is the
+most portable option:
 
 ```
+apikey: <your-team-anon-key>
 Authorization: Bearer <your-team-anon-key>
 ```
 
@@ -45,23 +48,23 @@ Full PostgREST docs: https://postgrest.org/
 ### curl
 
 ```bash
-export API="https://api-<team>.<domain>"
+export API="http://<vm>:8001"
 export KEY="eyJhbGci..."
 
 # All defects for a specific product
-curl -H "Authorization: Bearer $KEY" \
+curl -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
   "$API/v_defect_detail?product_id=eq.PRD-00042&order=defect_ts.desc"
 
 # BOM-level traceability: what parts with which batch are installed in this product?
-curl -H "Authorization: Bearer $KEY" \
+curl -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
   "$API/v_product_bom_parts?product_id=eq.PRD-00042"
 
 # Defects clustered by part number, newest first
-curl -H "Authorization: Bearer $KEY" \
+curl -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
   "$API/v_defect_detail?select=defect_id,defect_ts,defect_code,reported_part_title&order=defect_ts.desc&limit=20"
 
 # Create an initiative
-curl -X POST -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+curl -X POST -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
   -H "Prefer: return=representation" \
   "$API/product_action" \
   -d '{"action_id":"PA-00101","product_id":"PRD-00042","ts":"2026-04-13T10:00:00Z","action_type":"corrective","status":"open","user_id":"team","defect_id":"DEF-00007","comments":"Containment at supplier level"}'
@@ -73,7 +76,7 @@ curl -X POST -H "Authorization: Bearer $KEY" -H "Content-Type: application/json"
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
-  'https://api-<team>.<domain>',    // your team's API URL
+  'http://<vm>:8001',    // your team's API URL
   '<your-anon-key>'
 )
 
@@ -102,8 +105,9 @@ await supabase.from('product_action').insert({
 ```python
 import requests
 
-API = "https://api-<team>.<domain>"
-HDR = {"Authorization": "Bearer <your-anon-key>"}
+API = "http://<vm>:8001"
+KEY = "<your-anon-key>"
+HDR = {"apikey": KEY, "Authorization": f"Bearer {KEY}"}
 
 # Read
 resp = requests.get(
@@ -151,7 +155,7 @@ df = pd.read_sql("""
 
 ## Supabase Studio (SQL Editor)
 
-URL: `https://studio-<team>.<domain>/`
+URL: `http://<vm>:8401/`
 
 Use it for:
 - Ad-hoc SQL (window functions, recursive CTEs, complex joins).

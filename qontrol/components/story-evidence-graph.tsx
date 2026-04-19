@@ -831,6 +831,15 @@ export function StoryEvidenceGraph({ visualization }: Props) {
 
   return (
     <div className="story-graph-shell">
+      <div className="story-graph-toolbar">
+        <div className="story-graph-toolbar-copy">
+          <h4>Causal evidence graph</h4>
+          <p>
+            Interactive hypothesis map showing the strongest evidence path for the
+            current case.
+          </p>
+        </div>
+      </div>
       <div
         className="story-graph-canvas-wrap"
         style={{ height: `${blueprint.height ?? 420}px` }}

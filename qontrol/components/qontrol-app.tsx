@@ -814,6 +814,7 @@ export function QontrolApp() {
           <p className="eyebrow">
             <span className="eyebrow-initial">Q</span>
             <span className="eyebrow-rest">ontrol</span>
+            <span className="eyebrow-tagline">Take Control of Quality.</span>
           </p>
           <h1>Quality operations board</h1>
           <p className="hero-copy">
@@ -968,88 +969,297 @@ export function QontrolApp() {
                   </div>
 
                   <div className="detail-grid">
-                    <div className="detail-main">
-                      {actionError ? (
-                        <Panel unified title="Update error" description="Most recent backend error.">
-                          <p>{actionError}</p>
-                        </Panel>
-                      ) : null}
-                      <Panel unified title="Operational overview" description="Top priority signals for QM right now.">
-                        <div className="overview-grid">
-                          <MetricBlock label="Cost impact" value={formatCurrency(selectedCase.costUsd)} />
-                          <MetricBlock label="Last update" value={timeSince(selectedCase.lastUpdateAt)} />
-                          <MetricBlock
-                            label="Follow-up needed"
-                            value={selectedCaseNeedsFollowUp ? "Yes" : "No"}
-                            tone={selectedCaseNeedsFollowUp ? "danger" : "neutral"}
-                          />
-                          {!selectedCaseNeedsFollowUp ? (
-                            <MetricBlock
-                              label="Next follow-up"
-                              value={formatFollowUpDate(selectedCase.nextFollowUpAt)}
-                            />
-                          ) : null}
-                        </div>
-                        {githubDiscussionSummary ? (
-                          <div className="operational-summary-card">
-                            <div className="operational-summary-header">
-                              <div className="operational-summary-label">
-                                <AiGeneratedIcon />
-                                <span>GitHub conversation summary</span>
-                              </div>
-                              <p className="operational-summary-meta">
-                                {selectedCase.external?.discussionUpdatedAt ?? "Recently updated"}
-                              </p>
-                            </div>
-                            <p className="operational-summary-copy">{githubDiscussionSummary}</p>
-                          </div>
+                    <div className="detail-grid-top">
+                      <div className="detail-main">
+                        {actionError ? (
+                          <Panel unified title="Update error" description="Most recent backend error.">
+                            <p>{actionError}</p>
+                          </Panel>
                         ) : null}
-                      </Panel>
-
-                      <Panel unified title="Triage signals" description="Fast context for priority, cohort size, and next move.">
-                        <div className="overview-grid">
-                          <MetricBlock
-                            label="Matching cases"
-                            value={String(selectedCase.triageContext.matchingCases)}
-                          />
-                          <MetricBlock
-                            label="Open in same pattern"
-                            value={String(selectedCase.triageContext.openMatchingCases)}
-                          />
-                          <MetricBlock
-                            label="Queue priority"
-                            value={selectedCase.triageContext.queuePriority}
-                            tone={selectedCase.severity === "high" ? "danger" : "neutral"}
-                          />
-                          <MetricBlock
-                            label="Next move"
-                            value={selectedCase.triageContext.nextMove}
-                          />
-                        </div>
-                        <p className="triage-signal-copy">{selectedCase.triageContext.timeSignal}</p>
-                      </Panel>
-
-                      <Panel unified title="Story match" description="Why Qontrol thinks this is the right pattern.">
-                        <div className="match-grid">
-                          <div>
-                            <h4>Why this looks right</h4>
-                            <ul className="bullet-list">
-                              {selectedCase.routingWhy.map((item) => (
-                                <li key={item}>{item}</li>
-                              ))}
-                            </ul>
+                        <Panel unified title="Operational overview" description="Top priority signals for QM right now.">
+                          <div className="overview-grid">
+                            <MetricBlock label="Cost impact" value={formatCurrency(selectedCase.costUsd)} />
+                            <MetricBlock label="Last update" value={timeSince(selectedCase.lastUpdateAt)} />
+                            <MetricBlock
+                              label="Follow-up needed"
+                              value={selectedCaseNeedsFollowUp ? "Yes" : "No"}
+                              tone={selectedCaseNeedsFollowUp ? "danger" : "neutral"}
+                            />
+                            {!selectedCaseNeedsFollowUp ? (
+                              <MetricBlock
+                                label="Next follow-up"
+                                value={formatFollowUpDate(selectedCase.nextFollowUpAt)}
+                              />
+                            ) : null}
                           </div>
-                          <div>
-                            <h4>Still missing</h4>
-                            <ul className="bullet-list">
-                              {selectedCase.missingEvidence.map((item) => (
-                                <li key={item}>{item}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                      </Panel>
+                          {githubDiscussionSummary ? (
+                            <div className="operational-summary-card">
+                              <div className="operational-summary-header">
+                                <div className="operational-summary-label">
+                                  <AiGeneratedIcon />
+                                  <span>GitHub conversation summary</span>
+                                </div>
+                                <p className="operational-summary-meta">
+                                  {selectedCase.external?.discussionUpdatedAt ?? "Recently updated"}
+                                </p>
+                              </div>
+                              <p className="operational-summary-copy">{githubDiscussionSummary}</p>
+                            </div>
+                          ) : null}
+                        </Panel>
 
+                        <Panel unified title="Triage signals" description="Fast context for priority, cohort size, and next move.">
+                          <div className="overview-grid">
+                            <MetricBlock
+                              label="Matching cases"
+                              value={String(selectedCase.triageContext.matchingCases)}
+                            />
+                            <MetricBlock
+                              label="Open in same pattern"
+                              value={String(selectedCase.triageContext.openMatchingCases)}
+                            />
+                            <MetricBlock
+                              label="Queue priority"
+                              value={selectedCase.triageContext.queuePriority}
+                              tone={selectedCase.severity === "high" ? "danger" : "neutral"}
+                            />
+                            <MetricBlock
+                              label="Next move"
+                              value={selectedCase.triageContext.nextMove}
+                            />
+                          </div>
+                          <p className="triage-signal-copy">{selectedCase.triageContext.timeSignal}</p>
+                        </Panel>
+
+                        <Panel unified title="Story match" description="Why Qontrol thinks this is the right pattern.">
+                          <div className="match-grid">
+                            <div>
+                              <h4>Why this looks right</h4>
+                              <ul className="bullet-list">
+                                {selectedCase.routingWhy.map((item) => (
+                                  <li key={item}>{item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div>
+                              <h4>Still missing</h4>
+                              <ul className="bullet-list">
+                                {selectedCase.missingEvidence.map((item) => (
+                                  <li key={item}>{item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        </Panel>
+                      </div>
+
+                      <div className="detail-side">
+                        <Panel unified title="Proposed fix" description="Sent into the team board ticket and tracked back into QM.">
+                          <div className="proposed-fix-preview">
+                            <span
+                              aria-label="AI-generated summary"
+                              className="ai-generated-icon"
+                              role="img"
+                              title="AI-generated summary"
+                            >
+                              <svg
+                                aria-hidden="true"
+                                fill="none"
+                                height="14"
+                                stroke="currentColor"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                viewBox="0 0 24 24"
+                                width="14"
+                              >
+                                <path d="M12 3l1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3z" />
+                              </svg>
+                            </span>
+                            <p className="proposed-fix-preview-copy">
+                              {getProposedFixSummary(selectedCase.proposedFix)}
+                            </p>
+                          </div>
+                          <details className="proposed-fix-collapse">
+                            <summary className="proposed-fix-toggle">See fix details</summary>
+                            <div className="proposed-fix-body">
+                              <div className="requested-action">
+                                <div>
+                                  <h4>Containment</h4>
+                                  <p>{selectedCase.proposedFix.containment}</p>
+                                </div>
+                                <div>
+                                  <h4>Permanent fix</h4>
+                                  <p>{selectedCase.proposedFix.permanentFix}</p>
+                                </div>
+                                <div>
+                                  <h4>Validation ask</h4>
+                                  <p>{selectedCase.proposedFix.validation}</p>
+                                </div>
+                                <div>
+                                  <h4>Confidence</h4>
+                                  <p>{selectedCase.proposedFix.confidence}</p>
+                                </div>
+                                <div>
+                                  <h4>Owner confirmation</h4>
+                                  <p>{selectedCase.proposedFix.ownerConfirmation}</p>
+                                </div>
+                              </div>
+                              <ul className="bullet-list compact top-gap">
+                                {selectedCase.proposedFix.basis.map((item) => (
+                                  <li key={item}>{item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </details>
+                        </Panel>
+
+                        <Panel unified title="Routing" description="Who owns the current action and why.">
+                          <div className="stack-list">
+                            <SideRow label="QM owner" value={selectedCase.qmOwner} />
+                            {selectedCase.csOwner ? (
+                              <SideRow label="CS owner" value={selectedCase.csOwner} />
+                            ) : null}
+                            <SideRow label="Technical team" value={selectedCase.ownerTeam} />
+                            {selectedCase.sourceType === "claim" ? (
+                              <SideRow label="Market" value={selectedCase.market} />
+                            ) : null}
+                            <SideRow label="Product" value={`${selectedCase.articleId} / ${selectedCase.partNumber}`} />
+                          </div>
+                        </Panel>
+
+                        <details className="email-collapse">
+                          <summary className="email-collapse-toggle">Follow up options</summary>
+                          <div className="email-collapse-content">
+                            <p className="email-meta">Fast actions for the current case.</p>
+                            <div className="action-stack">
+                              <button className="secondary-button" onClick={handleSendEmail} type="button">
+                                Send email
+                              </button>
+                              <button className="secondary-button" onClick={handleSetupCall} type="button">
+                                Set up call
+                              </button>
+                              <button className="ghost-button" onClick={handleEscalate} type="button">
+                                Escalate to manager
+                              </button>
+                            </div>
+                          </div>
+                        </details>
+
+                        {selectedCase.imageUrl ? (
+                          <details className="email-collapse">
+                            <summary className="email-collapse-toggle">Defect image</summary>
+                            <div className="email-collapse-content">
+                              <img
+                                alt={`Image for ${selectedCase.id}`}
+                                className="defect-image"
+                                src={`/api/images?path=${encodeURIComponent(selectedCase.imageUrl)}`}
+                              />
+                            </div>
+                          </details>
+                        ) : null}
+
+                        <details className="email-collapse">
+                          <summary className="email-collapse-toggle">Assignment email draft</summary>
+                          <div className="email-collapse-content">
+                            <div className="email-meta">
+                              <p><strong>To:</strong> {selectedCase.emailDraft.to.join(", ")}</p>
+                              <p><strong>CC:</strong> {selectedCase.emailDraft.cc.join(", ")}</p>
+                              <p><strong>Subject:</strong> {selectedCase.emailDraft.subject}</p>
+                            </div>
+                            <textarea
+                              className="email-editor"
+                              onChange={(event) => handleEmailChange(event.target.value)}
+                              value={selectedCase.emailDraft.body}
+                            />
+                          </div>
+                        </details>
+
+                        <details className="email-collapse">
+                          <summary className="email-collapse-toggle">
+                            {usesGitHubBoard ? "External board" : "External handoff"}
+                          </summary>
+                          <div className="email-collapse-content">
+                            <p className="email-meta">
+                              {usesGitHubBoard
+                                ? "GitHub issue + board sync for R&D ownership and inbound updates."
+                                : "GitHub issue is shared on route; the downstream team tool stays mocked outside R&D."}
+                            </p>
+                            <div className="stack-list">
+                              <SideRow label="System" value={selectedCase.external?.system ?? "GitHub"} />
+                              <SideRow label="Ticket" value={selectedCase.external?.ticketId ?? "Not created"} />
+                              <SideRow label="Status" value={selectedCase.external?.status ?? "Draft"} />
+                              <SideRow label="Sync" value={selectedCase.external?.sync ?? "awaiting push"} />
+                              <SideRow label="Last external update" value={selectedCase.external?.lastUpdate ?? "None"} />
+                              <SideRow label="Repo" value={selectedCase.external?.repo ?? "Not configured"} />
+                              <SideRow
+                                label="Board"
+                                value={
+                                  usesGitHubBoard
+                                    ? selectedCase.external?.projectItemId
+                                      ? "GitHub Project"
+                                      : "Pending board sync"
+                                    : "Skipped outside R&D"
+                                }
+                              />
+                              <SideRow
+                                label="Team tool"
+                                value={usesGitHubBoard ? "GitHub" : mockToolName ?? "Mocked"}
+                              />
+                            </div>
+                            {selectedCase.external?.url ? (
+                              <a
+                                className="secondary-button top-gap inline-action-link"
+                                href={selectedCase.external.url}
+                                rel="noreferrer"
+                                target="_blank"
+                              >
+                                {selectedCase.external.urlLabel}
+                              </a>
+                            ) : null}
+                            <div className="action-stack top-gap">
+                              {usesGitHubBoard ? (
+                                <button
+                                  className="secondary-button"
+                                  disabled={isMutating}
+                                  onClick={handleConnectBoard}
+                                  type="button"
+                                >
+                                  {selectedCase.external?.issueNumber ? "Update GitHub issue" : "Create GitHub issue"}
+                                </button>
+                              ) : (
+                                <button
+                                  className="secondary-button"
+                                  disabled={isMutating || !selectedCase.external?.issueNumber}
+                                  onClick={handleMockExternalTool}
+                                  type="button"
+                                >
+                                  {mockToolName ? `Mock ${mockToolName}` : "Mock external handoff"}
+                                </button>
+                              )}
+                              <button
+                                className="ghost-button"
+                                disabled={isMutating || !selectedCase.external?.issueNumber}
+                                onClick={handleSyncGitHub}
+                                type="button"
+                              >
+                                Refresh GitHub sync
+                              </button>
+                              <button
+                                className="ghost-button"
+                                disabled={isMutating || !selectedCase.external?.issueNumber}
+                                onClick={handleBackfillGitHubSummaries}
+                                type="button"
+                              >
+                                Backfill all linked summaries
+                              </button>
+                            </div>
+                          </div>
+                        </details>
+                      </div>
+                    </div>
+
+                    <div className="detail-stack">
                       <Panel unified title="Evidence trail" description="Visual cause-and-effect path behind the recommendation.">
                         <StoryEvidenceView
                           visualization={selectedCase.visualization}
@@ -1131,19 +1341,6 @@ export function QontrolApp() {
                         </div>
                       </Panel>
 
-                      {selectedCase.imageUrl ? (
-                        <details className="email-collapse">
-                          <summary className="email-collapse-toggle">Defect image</summary>
-                          <div className="email-collapse-content">
-                            <img
-                              alt={`Image for ${selectedCase.id}`}
-                              className="defect-image"
-                              src={`/api/images?path=${encodeURIComponent(selectedCase.imageUrl)}`}
-                            />
-                          </div>
-                        </details>
-                      ) : null}
-
                       <Panel unified title="Timeline" description="Cross-system history and learnings trail.">
                         <div className="timeline">
                           {selectedCase.timeline.map((event) => (
@@ -1160,194 +1357,6 @@ export function QontrolApp() {
                           ))}
                         </div>
                       </Panel>
-                    </div>
-
-                    <div className="detail-side">
-                      <Panel unified title="Proposed fix" description="Sent into the team board ticket and tracked back into QM.">
-                        <div className="proposed-fix-preview">
-                          <span
-                            aria-label="AI-generated summary"
-                            className="ai-generated-icon"
-                            role="img"
-                            title="AI-generated summary"
-                          >
-                            <svg
-                              aria-hidden="true"
-                              fill="none"
-                              height="14"
-                              stroke="currentColor"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              viewBox="0 0 24 24"
-                              width="14"
-                            >
-                              <path d="M12 3l1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3z" />
-                            </svg>
-                          </span>
-                          <p className="proposed-fix-preview-copy">
-                            {getProposedFixSummary(selectedCase.proposedFix)}
-                          </p>
-                        </div>
-                        <details className="proposed-fix-collapse">
-                          <summary className="proposed-fix-toggle">See fix details</summary>
-                          <div className="proposed-fix-body">
-                            <div className="requested-action">
-                              <div>
-                                <h4>Containment</h4>
-                                <p>{selectedCase.proposedFix.containment}</p>
-                              </div>
-                              <div>
-                                <h4>Permanent fix</h4>
-                                <p>{selectedCase.proposedFix.permanentFix}</p>
-                              </div>
-                              <div>
-                                <h4>Validation ask</h4>
-                                <p>{selectedCase.proposedFix.validation}</p>
-                              </div>
-                              <div>
-                                <h4>Confidence</h4>
-                                <p>{selectedCase.proposedFix.confidence}</p>
-                              </div>
-                              <div>
-                                <h4>Owner confirmation</h4>
-                                <p>{selectedCase.proposedFix.ownerConfirmation}</p>
-                              </div>
-                            </div>
-                            <ul className="bullet-list compact top-gap">
-                              {selectedCase.proposedFix.basis.map((item) => (
-                                <li key={item}>{item}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        </details>
-                      </Panel>
-
-                      <Panel unified title="Routing" description="Who owns the current action and why.">
-                        <div className="stack-list">
-                          <SideRow label="QM owner" value={selectedCase.qmOwner} />
-                          {selectedCase.csOwner ? (
-                            <SideRow label="CS owner" value={selectedCase.csOwner} />
-                          ) : null}
-                          <SideRow label="Technical team" value={selectedCase.ownerTeam} />
-                          {selectedCase.sourceType === "claim" ? (
-                            <SideRow label="Market" value={selectedCase.market} />
-                          ) : null}
-                          <SideRow label="Product" value={`${selectedCase.articleId} / ${selectedCase.partNumber}`} />
-                        </div>
-                      </Panel>
-
-                      <Panel unified title="Follow up now" description="Fast actions for the current case.">
-                        <div className="action-stack">
-                          <button className="secondary-button" onClick={handleSendEmail} type="button">
-                            Send email
-                          </button>
-                          <button className="secondary-button" onClick={handleSetupCall} type="button">
-                            Set up call
-                          </button>
-                          <button className="ghost-button" onClick={handleEscalate} type="button">
-                            Escalate to manager
-                          </button>
-                        </div>
-                      </Panel>
-
-                      <details className="email-collapse">
-                        <summary className="email-collapse-toggle">Assignment email draft</summary>
-                        <div className="email-collapse-content">
-                          <div className="email-meta">
-                            <p><strong>To:</strong> {selectedCase.emailDraft.to.join(", ")}</p>
-                            <p><strong>CC:</strong> {selectedCase.emailDraft.cc.join(", ")}</p>
-                            <p><strong>Subject:</strong> {selectedCase.emailDraft.subject}</p>
-                          </div>
-                          <textarea
-                            className="email-editor"
-                            onChange={(event) => handleEmailChange(event.target.value)}
-                            value={selectedCase.emailDraft.body}
-                          />
-                        </div>
-                      </details>
-
-                      <details className="email-collapse">
-                        <summary className="email-collapse-toggle">
-                          {usesGitHubBoard ? "External board" : "External handoff"}
-                        </summary>
-                        <div className="email-collapse-content">
-                          <p className="email-meta">
-                            {usesGitHubBoard
-                              ? "GitHub issue + board sync for R&D ownership and inbound updates."
-                              : "GitHub issue is shared on route; the downstream team tool stays mocked outside R&D."}
-                          </p>
-                          <div className="stack-list">
-                            <SideRow label="System" value={selectedCase.external?.system ?? "GitHub"} />
-                            <SideRow label="Ticket" value={selectedCase.external?.ticketId ?? "Not created"} />
-                            <SideRow label="Status" value={selectedCase.external?.status ?? "Draft"} />
-                            <SideRow label="Sync" value={selectedCase.external?.sync ?? "awaiting push"} />
-                            <SideRow label="Last external update" value={selectedCase.external?.lastUpdate ?? "None"} />
-                            <SideRow label="Repo" value={selectedCase.external?.repo ?? "Not configured"} />
-                            <SideRow
-                              label="Board"
-                              value={
-                                usesGitHubBoard
-                                  ? selectedCase.external?.projectItemId
-                                    ? "GitHub Project"
-                                    : "Pending board sync"
-                                  : "Skipped outside R&D"
-                              }
-                            />
-                            <SideRow
-                              label="Team tool"
-                              value={usesGitHubBoard ? "GitHub" : mockToolName ?? "Mocked"}
-                            />
-                          </div>
-                          {selectedCase.external?.url ? (
-                            <a
-                              className="secondary-button top-gap inline-action-link"
-                              href={selectedCase.external.url}
-                              rel="noreferrer"
-                              target="_blank"
-                            >
-                              {selectedCase.external.urlLabel}
-                            </a>
-                          ) : null}
-                          <div className="action-stack top-gap">
-                            {usesGitHubBoard ? (
-                              <button
-                                className="secondary-button"
-                                disabled={isMutating}
-                                onClick={handleConnectBoard}
-                                type="button"
-                              >
-                                {selectedCase.external?.issueNumber ? "Update GitHub issue" : "Create GitHub issue"}
-                              </button>
-                            ) : (
-                              <button
-                                className="secondary-button"
-                                disabled={isMutating || !selectedCase.external?.issueNumber}
-                                onClick={handleMockExternalTool}
-                                type="button"
-                              >
-                                {mockToolName ? `Mock ${mockToolName}` : "Mock external handoff"}
-                              </button>
-                            )}
-                            <button
-                              className="ghost-button"
-                              disabled={isMutating || !selectedCase.external?.issueNumber}
-                              onClick={handleSyncGitHub}
-                              type="button"
-                            >
-                              Refresh GitHub sync
-                            </button>
-                            <button
-                              className="ghost-button"
-                              disabled={isMutating || !selectedCase.external?.issueNumber}
-                              onClick={handleBackfillGitHubSummaries}
-                              type="button"
-                            >
-                              Backfill all linked summaries
-                            </button>
-                          </div>
-                        </div>
-                      </details>
 
                       <Panel unified title="Learnings" description="Reusable notes captured during routing and closure.">
                         <ul className="bullet-list compact">
